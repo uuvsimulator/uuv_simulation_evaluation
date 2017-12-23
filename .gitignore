@@ -1,0 +1,6 @@
+*.pyc
+*.~
+
+# IDEs
+.ropeproject
+.vscode
