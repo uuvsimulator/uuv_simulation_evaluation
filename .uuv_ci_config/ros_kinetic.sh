@@ -14,4 +14,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-sh uuv_dependencies.sh
+sh .uuv_ci_config/uuv_dependencies.sh
