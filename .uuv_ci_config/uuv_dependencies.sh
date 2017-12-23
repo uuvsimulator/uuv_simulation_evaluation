@@ -21,4 +21,4 @@ sudo apt -qq install --no-install-recommends --allow-unauthenticated -y \
 
 # SETUP OTHER DEPENDENCIES FOR UUV SIMULATOR
 mkdir -p $CATKIN_WORKSPACE/src
-git clone https://github.com/uuvsimulator/uuv_simulation_evaluation.git
+git clone https://github.com/uuvsimulator/uuv_simulator.git $CATKIN_WORKSPACE/src/uuv_simulator
