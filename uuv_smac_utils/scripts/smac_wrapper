@@ -1,0 +1,177 @@
+#!/usr/bin/env python
+# Copyright (c) 2016 The UUV Simulator Authors.
+# All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import argparse
+import roslib
+import os
+import yaml
+import sys
+import logging
+from copy import deepcopy
+from uuv_simulation_runner import SimulationRunner
+from uuv_bag_evaluation import Evaluation
+from uuv_cost_function import CostFunction
+
+roslib.load_manifest('uuv_smac_utils')
+
+
+def parse_input(args, input_map):
+    p = vars(args)
+    params = dict()
+    for tag in input_map:
+        if type(input_map[tag]) == list:
+            p_cont = list()
+            for elem in input_map[tag]:
+                if type(elem) == str:
+                    p_cont.append(p[elem])
+                else:
+                    p_cont.append(elem)
+        else:
+            if type(input_map[tag]) == str:
+                p_cont = p[input_map[tag]]
+            else:
+                p_cont = input_map[tag]
+        params[tag] = p_cont
+
+    return params
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='SMAC wrapper')
+    # SMAC fixed positional parameters
+    #    <instance_name> <instance_specific_information> <cutoff_time> <cutoff_length> <seed>
+    parser.add_argument(
+        'instance_name',
+        help='The name of the problem instance we are executing against')
+    parser.add_argument(
+        'instance_specific_information',
+        help='An arbitrary string associated with this instance as specified in the instance file.')
+    parser.add_argument(
+        'cutoff_time', type=float,
+        help='The amount of time in seconds that the target algorithm is permitted to run.')
+    parser.add_argument(
+        'cutoff_length', type=float,
+        help='A domain specific measure of when the algorithm should consider itself done')
+    parser.add_argument(
+        'seed', type=int,
+        help='A positive integer that the algorithm should use to seed itself (for reproducibility).')
+
+    logger = logging.getLogger('smac_wrapper')
+    out_hdlr = logging.StreamHandler(sys.stdout)
+    out_hdlr.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
+    out_hdlr.setLevel(logging.INFO)
+    logger.addHandler(out_hdlr)
+    logger.setLevel(logging.INFO)
+
+    # Load optimization configuration
+    with open('opt_config.yml', 'r') as c_file:
+        opt_config = yaml.load(c_file)
+
+    logger.info('Optimization configuration file <opt_config.yml> loaded '
+                'sucessfully')
+
+    assert 'cost_fcn' in opt_config, 'Cost function configuration available'
+    assert 'input_map' in opt_config, 'Input parameter map is not available'
+    assert 'parameters' in opt_config, 'Parameter labels is not available'
+
+    # SMAC problem-specific parameters
+    logger.info('Reading list of input parameters')
+    for param_tag in opt_config['parameters']:
+        parser.add_argument('-' + param_tag, type=float)
+        logger.info('\t -' + param_tag)
+
+    args = parser.parse_args()
+
+    task = opt_config['task']
+    logger.info('Retrieving filename for task function=' + task)
+
+    results_dir = opt_config['output_dir']
+    logger.info('Retrieving output directory for partial results=' + results_dir)
+    record_all = False
+
+    params = parse_input(args, opt_config['input_map'])
+
+    if 'store_all_results' in opt_config:
+        record_all = opt_config['store_all_results']
+
+    logger.info('Record all partial results? ' + str(record_all))
+
+    try:
+        logger.info('Starting simulation...')
+        logger.info('\tParameters=' + str(params))
+        logger.info('\tPartial results root directory=' + results_dir)
+        logger.info('\tRecord all partial results? ' + str(record_all))
+        runner = SimulationRunner(params, task, results_dir, record_all)
+
+        runner.run(params)
+
+        logger.info('Simulation finished')
+
+        time_offset = 0.0
+        if 'evaluation_time_offset' in opt_config:
+            time_offset = max(0.0, opt_config['evaluation_time_offset'])
+
+        logger.info('Start evaluation of the results')
+        logger.info('\tTime offset for KPI evaluation[s]=' + str(time_offset))
+        logger.info('\tResults files directory=' + runner.current_sim_results_dir)
+        logger.info('\tROS bag file=' + runner.recording_filename)
+        sim_eval = Evaluation(runner.recording_filename,
+                              runner.current_sim_results_dir,
+                              time_offset=time_offset)
+
+        logger.info('Evaluation finished')
+        output_path = deepcopy(runner.current_sim_results_dir)
+        sim_eval.compute_kpis()
+
+        if 'store_kpis_only' in opt_config:
+            if opt_config['store_kpis_only']:
+                sim_eval.save_kpis()
+                logger.info('Store KPIs only')
+            else:
+                sim_eval.save_evaluation()
+                logger.info('Store KPIs and graphs')
+        else:
+            sim_eval.save_kpis()
+            logger.info('Store KPIs only')
+
+        logger.info('Calculating cost function')
+        cf = CostFunction()
+        cf.from_dict(opt_config['cost_fcn'])
+        cf.set_kpis(sim_eval.get_kpis())
+
+        if 'constraints' in opt_config:
+            assert type(opt_config['constraints']) == list, 'Constraints must defined on a list'
+            logger.info('Adding constraint models')
+            cf.add_constraints(opt_config['constraints'])
+
+        cost = cf.compute()
+        logger.info('Cost function=' + str(cost))
+        status = 'SUCCESS'
+        output = dict(status=status,
+                      cost=float(cost))
+
+        with open(os.path.join(runner.current_sim_results_dir, 'smac_result.yaml'), 'w') as smac_file:
+            yaml.dump(output, smac_file, default_flow_style=False)
+
+        cf.save(runner.current_sim_results_dir)
+
+        del runner
+        del sim_eval
+    except Exception, e:
+        logger.error('Error occurred in this iteration, setting simulation status to CRASHED, message=' + str(e))
+        status = 'CRASHED'
+        cost = 1e7
+
+    print('Result for SMAC: %s, 0, 0, %f, %s' % (status, cost, args.seed))
