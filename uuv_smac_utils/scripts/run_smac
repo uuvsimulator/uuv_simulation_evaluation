@@ -1,0 +1,152 @@
+#!/usr/bin/env python
+# Copyright (c) 2016 The UUV Simulator Authors.
+# All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+PKG = 'uuv_smac_utils'
+
+import rospy
+import os
+import subprocess
+import threading
+import argparse
+import psutil
+import datetime
+from time import gmtime, strftime
+import random
+from rospkg import RosPack
+
+import roslib; roslib.load_manifest(PKG)
+
+ROSPACK_INST = RosPack()
+
+SMAC_SCRIPT = os.path.join(ROSPACK_INST.get_path(PKG), 'scripts', 'smac')
+SMAC_WRAPPER = os.path.join(ROSPACK_INST.get_path(PKG), 'scripts', 'smac_wrapper')
+PARAM_FILE = 'parameter_config.pcs'
+
+# Definining some output colors
+ENDC = '\033[0m'
+COLORS = dict(red='\033[91m',
+              green='\033[92m',
+              yellow='\033[93m',
+              light_purple='\033[94m',
+              purple='\033[95m',
+              cyan='\033[96m',
+              light_gray='\033[97m')
+
+def print_with_color(color, msg):
+    if color not in COLORS:
+        color = COLORS['red']
+    print COLORS[color] + msg + ENDC
+
+def create_scenario_file(n):
+    datestr = strftime("%Y-%m-%d_%H:%M:%S", gmtime())
+    scenario_filename = 'scenario_%s_%d.txt' % (datestr, random.randrange(0, 1e5, 1))
+    scenario_filename = scenario_filename.replace(':', '-')
+
+    print 'Creating scenario configuration file, filename=', scenario_filename
+
+    with open(scenario_filename, 'w') as s_file:
+        s_file.write('algo = python %s\n' % SMAC_WRAPPER)
+        s_file.write('paramfile = %s\n' % PARAM_FILE)
+        s_file.write('run_obj = quality\n')
+        s_file.write('runcount_limit = %d\n' % n)
+        s_file.write('deterministic = 1\n')
+        s_file.write('abort_on_first_run_crash = false')
+
+    return scenario_filename
+
+class SMACProcess(threading.Thread):
+
+    def __init__(self, scenario_filename, mode, is_parallel=False, color='red'):
+        threading.Thread.__init__(self)
+        self.color = color
+        self.proc = None
+
+        self.cmd = 'python3 ' + SMAC_SCRIPT
+        self.cmd += ' --scenario ' + scenario_filename
+        self.cmd += ' --verbose ' + mode
+
+        if is_parallel:
+            self.cmd += ' --seed %d' % random.randrange(0, 1e5, 1)
+            self.cmd += ' --shared_model True'
+            self.cmd += ' --input_psmac_dirs smac3-output*'
+
+    def finish(self):
+        if self.proc:
+            self.proc.kill()
+            print 'SMAC process killed'
+
+    def run(self):
+        print 'Start SMAC process, cmd=', self.cmd
+        self.proc = subprocess.Popen(self.cmd.split(), stdin=subprocess.PIPE, stdout=subprocess.PIPE, universal_newlines=True)
+        returncode = self.proc.wait()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Run the SMAC optimizer')
+    parser.add_argument(
+        '--max_runs',
+        metavar='N',
+        type=int,
+        help='Max. number of simulation runs')
+    parser.add_argument(
+        '--debug',
+        metavar='DEBUG',
+        default=False,
+        type=bool,
+        help='Start SMAC in DEBUG mode')
+    parser.add_argument(
+        '--n_smacs',
+        metavar='N',
+        default=1,
+        type=int,
+        help='Number of parallel instances of SMAC')
+
+    # Parse input arguments
+    args = parser.parse_args(rospy.myargv()[1:])
+
+    assert args.max_runs > 0, 'Number of simulation runs must be greater than zero'
+    assert os.path.exists(PARAM_FILE), 'Parameter file does not exist'
+
+    mode = ('DEBUG' if args.debug else 'INFO')
+
+    procs = list()
+
+    assert args.n_smacs > 0, 'Number of SMAC instances must be greater than zero'
+    if args.n_smacs > 1:
+        print 'Number of SMAC instances = %d', args.n_smacs
+        for n in range(args.n_smacs):
+            scenario_filename = create_scenario_file(args.max_runs)
+
+            print '#%d SMAC PROCESS' % n
+            print 'Scenario filename = %s' % scenario_filename
+
+            procs.append(SMACProcess(scenario_filename, mode, True))
+    else:
+        scenario_filename = create_scenario_file(args.max_runs)
+        procs.append(SMACProcess(scenario_filename, mode))
+
+    try:
+        for proc in procs:
+            proc.start()
+
+        for proc in procs:
+            proc.join()
+    except KeyboardInterrupt:
+        print 'SMAC optimization interrupted, finishing all processes'
+        for proc in procs:
+            proc.finish()
+
+    print 'SMAC optimization finished!'
