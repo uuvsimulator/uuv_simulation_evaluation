@@ -6,6 +6,10 @@ KPIs and store ROS bags. It can be used to use the simulation wrapper to start
 a simulation scenario from a Python script in application for optimization
 purposes, machine learning and other similar tasks.
 
+Status of the master branch:
+
+[![Build Status](https://travis-ci.org/uuvsimulator/uuv_simulation_evaluation.svg?branch=master)](https://travis-ci.org/uuvsimulator/uuv_simulation_evaluation)
+
 ## Purpose of the project
 
 The software is not ready for production use. However, the license conditions of the
