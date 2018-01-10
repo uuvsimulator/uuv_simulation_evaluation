@@ -69,7 +69,8 @@ def create_scenario_file(n):
 
 class SMACProcess(threading.Thread):
 
-    def __init__(self, scenario_filename, mode, is_parallel=False, color='red'):
+    def __init__(self, scenario_filename, mode, is_parallel=False, color='red',
+                 restore_state_folder=None):
         threading.Thread.__init__(self)
         self.color = color
         self.proc = None
@@ -82,6 +83,10 @@ class SMACProcess(threading.Thread):
             self.cmd += ' --seed %d' % random.randrange(0, 1e5, 1)
             self.cmd += ' --shared_model True'
             self.cmd += ' --input_psmac_dirs smac3-output*'
+
+        if restore_state_folder is not None:
+            if os.path.isdir(restore_state_folder):
+                self.cmd += ' --restore_state %s' % restore_state_folder
 
     def finish(self):
         if self.proc:
@@ -113,6 +118,12 @@ if __name__ == '__main__':
         default=1,
         type=int,
         help='Number of parallel instances of SMAC')
+    parser.add_argument(
+        '--restore_state',
+        metavar='FOLDER',
+        default='',
+        type=str,
+        help='')
 
     # Parse input arguments
     args = parser.parse_args(rospy.myargv()[1:])
@@ -132,11 +143,19 @@ if __name__ == '__main__':
 
             print '#%d SMAC PROCESS' % n
             print 'Scenario filename = %s' % scenario_filename
-
-            procs.append(SMACProcess(scenario_filename, mode, True))
+            restore_state_folder = None
+            if os.path.isdir(args.restore_state):
+                restore_state_folder = args.restore_state
+            procs.append(
+                SMACProcess(scenario_filename, mode, True))
     else:
+        restore_state_folder = None
+        if os.path.isdir(args.restore_state):
+            restore_state_folder = args.restore_state
+
         scenario_filename = create_scenario_file(args.max_runs)
-        procs.append(SMACProcess(scenario_filename, mode))
+        procs.append(SMACProcess(scenario_filename, mode,
+                                 restore_state_folder=restore_state_folder))
 
     try:
         for proc in procs:
