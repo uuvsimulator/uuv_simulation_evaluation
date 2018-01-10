@@ -80,7 +80,14 @@ if __name__ == '__main__':
 
     print 'SMAC RESULTS FOLDER=', smac_folder
 
-    smac_file = os.path.join(smac_folder, 'traj_aclib2.json')
+    for f in os.listdir(smac_folder):
+        if f == 'traj_aclib2.json':
+            smac_file = os.path.join(smac_folder, 'traj_aclib2.json')
+            break
+        if os.path.isdir(f):
+            for a in os.listdir(os.path.join(smac_folder, f)):
+                if a == 'traj_aclib2.json':
+                    smac_file = os.path.join(smac_folder, f, a)
 
     if not os.path.isfile(smac_file):
         raise Exception('SMAC output file not found')
