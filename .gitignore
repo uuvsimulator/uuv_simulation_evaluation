@@ -4,3 +4,7 @@
 # IDEs
 .ropeproject
 .vscode
+
+# Folders
+smac3-output*
+*/results/*
