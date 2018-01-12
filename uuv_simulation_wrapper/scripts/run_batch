@@ -118,15 +118,21 @@ if __name__ == '__main__':
     # Generate the parameter vectors
     assert type(grid_config) == dict, 'List of parameters must be a dictionary'
 
+    use_monte_carlo = False
+    if 'use_monte_carlo' in grid_config:
+        use_monte_carlo = grid_config['use_monte_carlo']
     params = dict()
     for tag in grid_config['parameters']:
         param_config = grid_config['parameters'][tag]
         if type(param_config) == list:
             params[tag] = param_config
-        else:
+        elif not use_monte_carlo:
             params[tag] = np.linspace(param_config['min'],
                                       param_config['max'],
                                       param_config['n'])
+        else:
+            params[tag] = range(param_config['n'])
+
         print tag, params[tag]
 
     for p in itertools.product(*params.values()):
@@ -148,8 +154,13 @@ if __name__ == '__main__':
                     if input_map[param_tag] == tag:
                         if type(item) == str:
                             input_map[param_tag] = item
-                        else:
+                        elif not use_monte_carlo:
                             input_map[param_tag] = float(item)
+                        else:
+                            input_map[param_tag] = \
+                                float(np.random.random_sample(1)[0] * \
+                                (grid_config['parameters'][tag]['max'] - grid_config['parameters'][tag]['min']) + grid_config['parameters'][tag]['min'])
+                            item = input_map[param_tag]
             temp_task_file += '_' + tag + '_' + str(item)
         for tag in input_map:
             temp_task['execute']['params'][tag] = input_map[tag]
@@ -167,7 +178,6 @@ if __name__ == '__main__':
             logger.info('Task file already exists=' + os.path.basename(temp_task_file_full_path))
 
     threads = dict()
-
     # Run simulations
     for task in sorted(os.listdir(tasks_dir)):
         results_dir = os.path.join(output_dir, 'results', task.replace('.yml', ''))
