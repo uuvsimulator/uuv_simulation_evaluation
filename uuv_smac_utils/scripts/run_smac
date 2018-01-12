@@ -77,7 +77,7 @@ class SMACProcess(threading.Thread):
 
         self.cmd = 'python3 ' + SMAC_SCRIPT
         self.cmd += ' --scenario ' + scenario_filename
-        self.cmd += ' --verbose ' + mode
+        self.cmd += ' --verbose_level ' + mode
 
         if is_parallel:
             self.cmd += ' --seed %d' % random.randrange(0, 1e5, 1)
