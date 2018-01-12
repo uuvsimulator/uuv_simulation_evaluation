@@ -22,16 +22,15 @@ import sys
 import yaml
 import itertools
 import logging
-import threading
 import numpy as np
 from time import sleep
 from copy import deepcopy
-from time import gmtime, strftime
 from uuv_simulation_runner import SimulationRunner
 from bag_evaluation import Evaluation
-from bag_evaluation.metrics import KPI
+
 
 roslib.load_manifest('uuv_simulation_wrapper')
+
 
 def parse_input(args, input_map):
     p = vars(args)
@@ -53,6 +52,7 @@ def parse_input(args, input_map):
 
     return params
 
+
 def has_task_results(output_dir, task_filename):
     results_dir = os.path.join(output_dir, 'results', task_filename.replace('.yml', ''))
     if os.path.isdir(results_dir):
@@ -64,6 +64,7 @@ def has_task_results(output_dir, task_filename):
         if has_results:
             return True
     return False
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run batch of simulations')
@@ -118,72 +119,80 @@ if __name__ == '__main__':
     # Generate the parameter vectors
     assert type(grid_config) == dict, 'List of parameters must be a dictionary'
 
-    use_monte_carlo = False
-    if 'use_monte_carlo' in grid_config:
-        use_monte_carlo = grid_config['use_monte_carlo']
-    params = dict()
-    for tag in grid_config['parameters']:
-        param_config = grid_config['parameters'][tag]
-        if type(param_config) == list:
-            params[tag] = param_config
-        elif not use_monte_carlo:
-            params[tag] = np.linspace(param_config['min'],
-                                      param_config['max'],
-                                      param_config['n'])
-        else:
-            params[tag] = range(param_config['n'])
+    # Copy the input map
+    input_map = deepcopy(grid_config['input_map'])
 
-        print tag, params[tag]
+    if len(os.listdir(tasks_dir)) == 0:
+        use_monte_carlo = False
+        if 'use_monte_carlo' in grid_config:
+            use_monte_carlo = grid_config['use_monte_carlo']
+        params = dict()
+        for tag in grid_config['parameters']:
+            param_config = grid_config['parameters'][tag]
+            if type(param_config) == list:
+                params[tag] = param_config
+            elif not use_monte_carlo:
+                params[tag] = np.linspace(param_config['min'],
+                                          param_config['max'],
+                                          param_config['n'])
+            else:
+                params[tag] = range(param_config['n'])
 
-    for p in itertools.product(*params.values()):
-        temp_task_file = 'task'
-        # Temporary task configuration
-        temp_task = deepcopy(task_config)
-        # Copy the input map
-        input_map = deepcopy(grid_config['input_map'])
-        for tag, item in zip(params.keys(), p):
-            for param_tag in input_map:
-                if type(input_map[param_tag]) == list:
-                    for i in range(len(input_map[param_tag])):
-                        if input_map[param_tag][i] == tag:
+        counter = 0
+        for p in itertools.product(*params.values()):
+            temp_task_file = 'task_%d' % counter
+            counter += 1
+            # Copy the input map
+            input_map = deepcopy(grid_config['input_map'])
+            # Temporary task configuration
+            temp_task = deepcopy(task_config)
+            for tag, item in zip(params.keys(), p):
+                for param_tag in input_map:
+                    if type(input_map[param_tag]) == list:
+                        for i in range(len(input_map[param_tag])):
+                            if input_map[param_tag][i] == tag:
+                                if type(item) == str:
+                                    input_map[param_tag][i] = item
+                                else:
+                                    input_map[param_tag][i] = float(item)
+                    else:
+                        if input_map[param_tag] == tag:
                             if type(item) == str:
-                                input_map[param_tag][i] = item
+                                input_map[param_tag] = item
+                            elif not use_monte_carlo:
+                                input_map[param_tag] = float(item)
                             else:
-                                input_map[param_tag][i] = float(item)
-                else:
-                    if input_map[param_tag] == tag:
-                        if type(item) == str:
-                            input_map[param_tag] = item
-                        elif not use_monte_carlo:
-                            input_map[param_tag] = float(item)
-                        else:
-                            input_map[param_tag] = \
-                                float(np.random.random_sample(1)[0] * \
-                                (grid_config['parameters'][tag]['max'] - grid_config['parameters'][tag]['min']) + grid_config['parameters'][tag]['min'])
-                            item = input_map[param_tag]
-            temp_task_file += '_' + tag + '_' + str(item)
-        for tag in input_map:
-            temp_task['execute']['params'][tag] = input_map[tag]
-        temp_task_file = temp_task_file.replace('.', '-')
-        temp_task_file = temp_task_file.replace('/', '-')
-        temp_task_file = temp_task_file.replace(':', '-')
-        temp_task_file += '.yml'
+                                input_map[param_tag] = \
+                                    float(np.random.random_sample(1)[0] * \
+                                    (grid_config['parameters'][tag]['max'] - grid_config['parameters'][tag]['min']) + grid_config['parameters'][tag]['min'])
+                                item = input_map[param_tag]
+            for tag in input_map:
+                temp_task['execute']['params'][tag] = input_map[tag]
+            temp_task_file = temp_task_file.replace('.', '-')
+            temp_task_file = temp_task_file.replace('/', '-')
+            temp_task_file = temp_task_file.replace(':', '-')
+            temp_task_file += '.yml'
 
-        temp_task_file_full_path = os.path.join(tasks_dir, temp_task_file)
-        if not os.path.isfile(temp_task_file_full_path):
-            with open(temp_task_file_full_path, 'w') as gs_file:
-                yaml.dump(temp_task, gs_file, default_flow_style=False)
-            logger.info('Task file created=' + os.path.basename(temp_task_file_full_path))
-        else:
-            logger.info('Task file already exists=' + os.path.basename(temp_task_file_full_path))
+            temp_task_file_full_path = os.path.join(tasks_dir, temp_task_file)
+            if not os.path.isfile(temp_task_file_full_path):
+                with open(temp_task_file_full_path, 'w') as gs_file:
+                    yaml.dump(temp_task, gs_file, default_flow_style=False)
+                logger.info('Task file created=' + os.path.basename(temp_task_file_full_path))
+            else:
+                logger.info('Task file already exists=' + os.path.basename(temp_task_file_full_path))
+    else:
+        logger.info('Tasks folder is not empty, using the tasks stored...')
 
     threads = dict()
+    output_sim_file = os.path.join(output_dir, 'analysis.yml')
+
     # Run simulations
     for task in sorted(os.listdir(tasks_dir)):
+        sim_data = dict()
         results_dir = os.path.join(output_dir, 'results', task.replace('.yml', ''))
         if os.path.isdir(results_dir):
             if has_task_results(results_dir, task):
-                continue
+                logger.info('Results for task <%s> already exists, skipping' % task)
 
         if not has_task_results(output_dir, task):
             try:
@@ -210,8 +219,40 @@ if __name__ == '__main__':
 
                 logger.info('Evaluation finished, task=' + task)
 
+                # Compute KPIs and generate plots from this simulation
                 sim_eval.compute_kpis()
                 sim_eval.save_evaluation()
+
+                # Update the batch runs analysis data
+                with open(os.path.join(tasks_dir, task), 'r') as task_file:
+                    task_data = yaml.load(task_file)
+
+                # Getting the variables set by the batch process from the task
+                # files
+                for tag in input_map:
+                    sim_data[tag] = [task_data['execute']['params'][tag]]
+
+                sim_data['task_file'] = [task]
+
+                # Add all KPIs to the output data
+                for tag, value in sim_eval.get_kpis().items():
+                    sim_data[tag] = [value]
+                # Just copy the dictionary of current data if the file
+                # does not exist yet
+                if not os.path.isfile(output_sim_file):
+                    output_sim_data = sim_data
+                else:
+                    # Update the loaded data from past simulations
+                    with open(output_sim_file, 'r') as output_file:
+                        output_sim_data = yaml.load(output_file)
+
+                    for tag in sim_data:
+                        output_sim_data[tag].append(sim_data[tag][0])
+
+                # Store and overwrite the analysis data
+                with open(output_sim_file, 'w+') as output_file:
+                    yaml.safe_dump(output_sim_data, output_file,
+                                   default_flow_style=False)
 
                 del runner
                 del sim_eval
