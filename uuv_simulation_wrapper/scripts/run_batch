@@ -27,6 +27,7 @@ from time import sleep
 from copy import deepcopy
 from uuv_simulation_runner import SimulationRunner
 from bag_evaluation import Evaluation
+from uuv_cost_function import CostFunction
 
 
 roslib.load_manifest('uuv_simulation_wrapper')
@@ -122,6 +123,13 @@ if __name__ == '__main__':
     # Copy the input map
     input_map = deepcopy(grid_config['input_map'])
 
+    # Load the cost function
+    cost_function = None
+    if 'cost_fcn' in grid_config:
+        cost_function = CostFunction()
+        cost_function.from_dict(grid_config['cost_fcn'])
+
+    # In case the tasks folder is empty, create the tasks
     if len(os.listdir(tasks_dir)) == 0:
         use_monte_carlo = False
         if 'use_monte_carlo' in grid_config:
@@ -223,6 +231,9 @@ if __name__ == '__main__':
                 sim_eval.compute_kpis()
                 sim_eval.save_evaluation()
 
+                if cost_function is not None:
+                    cost_function.set_kpis(sim_eval.get_kpis())
+
                 # Update the batch runs analysis data
                 with open(os.path.join(tasks_dir, task), 'r') as task_file:
                     task_data = yaml.load(task_file)
@@ -233,6 +244,9 @@ if __name__ == '__main__':
                     sim_data[tag] = [task_data['execute']['params'][tag]]
 
                 sim_data['task_file'] = [task]
+
+                if cost_function is not None:
+                    sim_data['cost_function'] = [float(cost_function.compute())]
 
                 # Add all KPIs to the output data
                 for tag, value in sim_eval.get_kpis().items():
