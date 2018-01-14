@@ -21,6 +21,7 @@ import yaml
 import rospy
 import argparse
 import sys
+from copy import deepcopy
 
 roslib.load_manifest('uuv_smac_utils')
 
@@ -136,7 +137,7 @@ To run the SMAC optimization after setting up the configurations, run
 
 ```bash
 >> cd <path_to_config>/smac_config
->> rosrun uuv_evaluation run_smac -n <max_number_of_iterations>
+>> rosrun uuv_smac_utils run_smac --max_runs <max_number_of_iterations>
 ```
 
 After the optimization is finished, the folders smac_<timestamp> and results
@@ -144,8 +145,36 @@ should be generated. To process the SMAC results and plot the results, run
 
 ```bash
 >> cd <path_to_config>/smac_config
->> rosrun uuv_evaluation evaluate_smac_best_results.py
+>> rosrun uuv_smac_utils evaluate_smac_best_results
 ```
+"""
+
+RUN_SMAC_SCRIPT = \
+"""
+#!/usr/bin/env bash
+cd $(rospack find <opt_catkin_pkg>)/smac_config
+rosrun uuv_smac_utils run_smac --max_runs $1 --debug true
+"""
+
+RUN_SMAC_RESTORE_STATE_SCRIPT = \
+"""
+#!/usr/bin/env bash
+cd $(rospack find <opt_catkin_pkg>)/smac_config
+rosrun uuv_smac_utils run_smac --max_runs $1 --debug true --restore_state $2
+"""
+
+RUN_PSMAC_SCRIPT = \
+"""
+#!/usr/bin/env bash
+cd $(rospack find <opt_catkin_pkg>)/smac_config
+rosrun uuv_smac_utils run_smac --max_runs $1 --debug true --n_smacs $2
+"""
+
+RUN_EVALUATION_SCRIPT = \
+"""
+#!/usr/bin/env bash
+cd $(rospack find <opt_catkin_pkg>)/smac_config
+rosrun uuv_smac_utils evaluate_smac_best_results
 """
 
 
@@ -153,18 +182,70 @@ class Template:
     __slots__ = ['filename', 'data', 'dir']
 
     def __init__(self, output_dir):
-        self.dir = output_dir
+        self.dir = deepcopy(output_dir)
+        self.is_exe = False
 
     def save(self):
         if self.data is None or self.filename is None:
             print('Nothing to save')
             return
-        with open(os.path.join(self.dir, self.filename), 'w') as f:
-            if ('.yml' in self.filename or '.yaml' in self.filename) and type(self.data) == dict:
+
+        with open(os.path.join(self.dir, self.filename), 'w+') as f:
+            if ('.yml' in self.filename or '.yaml' in self.filename) and \
+               type(self.data) == dict:
                 yaml.dump(self.data, f, default_flow_style=False)
             else:
                 f.write(self.data)
-            print('File stored - ' + os.path.join(self.dir, self.filename))
+                f.write('\n')
+
+        print('File stored - ' + os.path.join(self.dir, self.filename))
+
+        if self.is_exe:
+            os.system('chmod u+x %s' % os.path.join(self.dir, self.filename))
+
+
+class TemplateScript(Template):
+    def __init__(self, output_dir, catkin_pkg=None):
+        Template.__init__(self, output_dir)
+        self.catkin_pkg = catkin_pkg
+        self.is_exe = True
+
+    def replace_catkin_pkg(self):
+        if self.catkin_pkg is not None:
+            self.data = self.data.replace('<opt_catkin_pkg>', catkin_pkg)
+
+
+class TemplateRunSMACScript(TemplateScript):
+    def __init__(self, output_dir, catkin_pkg=None):
+        TemplateScript.__init__(self, output_dir, catkin_pkg)
+        self.filename = 'run_smac_opt'
+        self.data = RUN_SMAC_SCRIPT
+        self.replace_catkin_pkg()
+
+
+class TemplateRunSMACRestoreStateScript(TemplateScript):
+    def __init__(self, output_dir, catkin_pkg=None):
+        TemplateScript.__init__(self, output_dir, catkin_pkg)
+        self.filename = 'restore_smac_opt'
+        self.data = RUN_SMAC_RESTORE_STATE_SCRIPT
+        self.replace_catkin_pkg()
+
+
+class TemplateEvaluationScript(TemplateScript):
+    def __init__(self, output_dir, catkin_pkg=None):
+        TemplateScript.__init__(self, output_dir, catkin_pkg)
+        self.filename = 'evaluate_results'
+        self.data = RUN_EVALUATION_SCRIPT
+        self.replace_catkin_pkg()
+
+
+class TemplateRunPSMACScript(TemplateScript):
+    def __init__(self, output_dir, catkin_pkg=None):
+        TemplateScript.__init__(self, output_dir, catkin_pkg)
+        self.filename = 'run_psmac_opt'
+        self.data = RUN_PSMAC_SCRIPT
+        self.replace_catkin_pkg()
+
 
 class TemplateOptConfig(Template):
     def __init__(self, output_dir):
@@ -173,14 +254,15 @@ class TemplateOptConfig(Template):
         self.data = dict(cost_fcn=dict(),
                          constraints=dict(),
                          task='task.yml',
-                         output_dir='./results',
-                         store_all_results=True,
-                         store_kpis_only=False,
+                         output_dir='/tmp/simulation_results',
+                         store_all_results=False,
+                         store_kpis_only=True,
                          evaluation_time_offset=0.0,
                          parameters=PARAMETERS,
                          input_map=INPUT_MAP)
         for kpi in KPIS:
             self.data['cost_fcn'][kpi] = 0.0
+
 
 class TemplateParameterConfig(Template):
     def __init__(self, output_dir):
@@ -189,6 +271,7 @@ class TemplateParameterConfig(Template):
         self.data = str()
         for p in PARAMETERS:
             self.data += '%s [<min>, <max>] [<initial_value>]\n' % p
+
 
 class TemplateTask(Template):
     def __init__(self, output_dir, name='smac_opt', catkin_pkg=None, launch_file=None):
@@ -210,11 +293,13 @@ class TemplateTask(Template):
         else:
             self.data['execute']['cmd'] += '<launch_file>'
 
+
 class TemplateLaunchFile(Template):
     def __init__(self, output_dir, launch_file=None):
         Template.__init__(self, output_dir)
         self.filename = launch_file
         self.data = LAUNCH_FILE_TEMPLATE
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Create template files for SMAC")
@@ -237,6 +322,7 @@ if __name__ == '__main__':
     launch_file = None if len(args.launch_file) == 0 else args.launch_file
     output_dir = args.output_dir
     launch_file_dir = None
+    scripts_dir = None
 
     if catkin_pkg is not None:
         if os.path.exists(catkin_pkg):
@@ -252,9 +338,13 @@ if __name__ == '__main__':
             launch_file_dir = os.path.join(catkin_pkg, 'launch')
             if not os.path.isdir(launch_file_dir):
                 os.makedirs(launch_file_dir)
-            print('Created launch directory')
+            print('Created launch directory=' + launch_file_dir)
+            scripts_dir = os.path.join(catkin_pkg, 'scripts')
+            if not os.path.isdir(scripts_dir):
+                os.makedirs(scripts_dir)
+            print('Created scripts directory=' + scripts_dir)
 
-    if None not in [launch_file, catkin_pkg]:
+    if None not in [launch_file, catkin_pkg, scripts_dir]:
         print('Optimization launch file = ' + launch_file)
     else:
         launch_file = None
@@ -265,7 +355,11 @@ if __name__ == '__main__':
 
     files = [TemplateOptConfig(output_dir),
              TemplateParameterConfig(output_dir),
-             TemplateTask(output_dir, args.name, catkin_pkg, launch_file)]
+             TemplateTask(output_dir, args.name, catkin_pkg, launch_file),
+             TemplateRunSMACScript(scripts_dir, catkin_pkg),
+             TemplateRunPSMACScript(scripts_dir, catkin_pkg),
+             TemplateEvaluationScript(scripts_dir, catkin_pkg),
+             TemplateRunSMACRestoreStateScript(scripts_dir, catkin_pkg)]
 
     if catkin_pkg is not None:
         files.append(TemplateLaunchFile(launch_file_dir, launch_file))

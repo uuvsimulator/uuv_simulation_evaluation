@@ -162,7 +162,7 @@ if __name__ == '__main__':
         output = dict(status=status,
                       cost=float(cost))
 
-        with open(os.path.join(runner.current_sim_results_dir, 'smac_result.yaml'), 'w') as smac_file:
+        with open(os.path.join(runner.current_sim_results_dir, 'smac_result.yaml'), 'w+') as smac_file:
             yaml.dump(output, smac_file, default_flow_style=False)
 
         cf.save(runner.current_sim_results_dir)
