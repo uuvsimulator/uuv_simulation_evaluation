@@ -150,29 +150,25 @@ should be generated. To process the SMAC results and plot the results, run
 """
 
 RUN_SMAC_SCRIPT = \
-"""
-#!/usr/bin/env bash
+"""#!/usr/bin/env bash
 cd $(rospack find <opt_catkin_pkg>)/smac_config
 rosrun uuv_smac_utils run_smac --max_runs $1 --debug true
 """
 
 RUN_SMAC_RESTORE_STATE_SCRIPT = \
-"""
-#!/usr/bin/env bash
+"""#!/usr/bin/env bash
 cd $(rospack find <opt_catkin_pkg>)/smac_config
 rosrun uuv_smac_utils run_smac --max_runs $1 --debug true --restore_state $2
 """
 
 RUN_PSMAC_SCRIPT = \
-"""
-#!/usr/bin/env bash
+"""#!/usr/bin/env bash
 cd $(rospack find <opt_catkin_pkg>)/smac_config
 rosrun uuv_smac_utils run_smac --max_runs $1 --debug true --n_smacs $2
 """
 
 RUN_EVALUATION_SCRIPT = \
-"""
-#!/usr/bin/env bash
+"""#!/usr/bin/env bash
 cd $(rospack find <opt_catkin_pkg>)/smac_config
 rosrun uuv_smac_utils evaluate_smac_best_results
 """
