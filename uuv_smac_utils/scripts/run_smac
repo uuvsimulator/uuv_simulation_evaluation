@@ -76,7 +76,7 @@ class SMACProcess(threading.Thread):
         self.proc = None
 
         self.cmd = 'python3 ' + SMAC_SCRIPT
-        self.cmd += ' --scenario ' + scenario_filename
+        self.cmd += ' --scenario_file ' + scenario_filename
         self.cmd += ' --verbose_level ' + mode
 
         if is_parallel:
@@ -95,7 +95,9 @@ class SMACProcess(threading.Thread):
 
     def run(self):
         print 'Start SMAC process, cmd=', self.cmd
-        self.proc = subprocess.Popen(self.cmd.split(), stdin=subprocess.PIPE, stdout=subprocess.PIPE, universal_newlines=True)
+        self.proc = subprocess.Popen(
+            self.cmd.split(), stdin=None, stdout=None, stderr=None,
+            universal_newlines=True)
         returncode = self.proc.wait()
 
 
