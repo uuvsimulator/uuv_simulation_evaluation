@@ -412,6 +412,11 @@ class Evaluation(object):
             ax.grid(True)
             plt.tight_layout()
 
+            # Invert axis if the pose of the vehicle is represented wrt NED
+            # inertial reference frame
+            if min_z >= 0 and max_z >= 0:
+                plt.gca().invert_zaxis()
+
             output_path = (self._output_dir if output_dir is None else output_dir)
             filename = os.path.join(output_path, 'paths.pdf')
             plt.savefig(filename)
@@ -1039,7 +1044,7 @@ class Evaluation(object):
         self.plot_trajectories(output_dir)
         self.plot_thruster_output(output_dir)
         self.plot_error_dist(output_dir)
-        self._logger.info('Evaluation stored!') 
+        self._logger.info('Evaluation stored!')
 
     def save_kpis(self, output_dir=None):
         if output_dir is not None:
