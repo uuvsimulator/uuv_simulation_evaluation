@@ -68,11 +68,16 @@ class TestEvaluateTrajectory(unittest.TestCase):
         self.assertIn('kpi_labels.yaml', os.listdir(RESULTS_DIR), 'KPIs labels were not stored in file kpis_labels.yaml')
 
     def test_store_images(self):
-        self.assertIn('recording.bag', os.listdir(ROOT_PATH),'recording.bag cannot be found')
+        self.assertIn('recording.bag', os.listdir(ROOT_PATH), 'recording.bag cannot be found')
+
+        if not os.path.isdir(RESULTS_DIR):
+            os.makedirs(RESULTS_DIR)
 
         sim_eval = Evaluation(ROSBAG, RESULTS_DIR)
         sim_eval.compute_kpis()
         sim_eval.save_evaluation()
+
+        self.assertTrue(os.path.isdir(RESULTS_DIR), 'Results directory does not exist')
 
         pdf_files = list()
         for f in os.listdir(RESULTS_DIR):
