@@ -7,6 +7,9 @@ catkin_python_setup()
 
 catkin_package()
 
+catkin_install_python(PROGRAMS scripts/evaluate_bag                               
+                      DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+
 if(CATKIN_ENABLE_TESTING)
   find_package(rostest)
   foreach(T
