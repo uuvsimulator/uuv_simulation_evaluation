@@ -228,7 +228,7 @@ class SimulationRunner(object):
                         # Setting the process timeout
                         if task['execute']['params'][param] > 0 and timeout is None:
                             # Set the process timeout to 5 times the given simulation timeout
-                            self._timeout = 5 * int(task['execute']['params'][param])
+                            self._timeout = 1.5 * int(task['execute']['params'][param])
                             self._logger.info('Simulation timout t=%.f s' % task['execute']['params'][param])
                         else:
                             self._logger.error('Invalid timeout = %.f' % task['execute']['params'][param])
