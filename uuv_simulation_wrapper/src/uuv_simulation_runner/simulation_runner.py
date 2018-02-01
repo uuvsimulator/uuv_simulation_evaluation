@@ -261,7 +261,7 @@ class SimulationRunner(object):
                 # will return false
                 timer = Timer(self._timeout, self._kill_process)
                 timer.start()
-                success = self._process.wait(timeout=1e5)
+                success = self._process.wait(timeout=self._timeout)
 
                 if success == 0:
                     self._logger.info('Simulation finished successfully')
