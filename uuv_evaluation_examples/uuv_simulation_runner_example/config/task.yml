@@ -10,6 +10,7 @@ execute:
     # Gazebo client and RViz are not initialized when running the iterations
     # using the simulation wrapper
     gui: false
+    timeout: 70
     # Recording the simulation is necessary for the evaluation step later
     record: true
     bag_filename: recording.bag
