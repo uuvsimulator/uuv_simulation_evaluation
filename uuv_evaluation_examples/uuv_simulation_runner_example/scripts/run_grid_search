@@ -27,7 +27,7 @@ PKG = 'uuv_simulation_runner_example'
 
 import roslib; roslib.load_manifest(PKG)
 
-# Find the path to the uuv_tutorial_simulation_runner package
+# Find the path to the uuv_simulation_runner_example package
 ROSPACK_INST = RosPack()
 ROOT_PATH = ROSPACK_INST.get_path(PKG)
 
