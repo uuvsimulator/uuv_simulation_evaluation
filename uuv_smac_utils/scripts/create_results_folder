@@ -53,7 +53,7 @@ if __name__ == '__main__':
         if 'smac3-output' in item and os.path.isdir(os.path.join(args.input_dir, item)):
             smac_folders.append(os.path.join(args.input_dir, item))
             print 'SMAC output folder found = ' + smac_folders[-1]
-
+        
     assert len(smac_folders) > 0, 'No SMAC output folders found in directory ' + args.input_dir
 
     datestr = strftime("%Y-%m-%d_%H:%M:%S", gmtime())
@@ -68,7 +68,7 @@ if __name__ == '__main__':
                      description='<add description here>')
     for i in range(len(smac_folders)):
         results_folder = os.path.join(args.output_dir, results_folder_prefix + '_' + str(i), 'smac_config')
-        assert not os.path.isdir(results_folder), 'Results folder alredy exists!'
+        assert not os.path.isdir(results_folder), 'Results folder already exists!'
 
         os.makedirs(results_folder)
         print 'Results folder created = ' + results_folder
