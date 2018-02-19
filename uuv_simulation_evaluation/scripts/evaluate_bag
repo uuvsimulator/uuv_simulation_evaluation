@@ -20,7 +20,7 @@ import numpy as np
 import os
 import yaml
 import sys
-from bag_evaluation import Evaluation
+from uuv_bag_evaluation import Evaluation
 
 import roslib
 import rospy
