@@ -19,7 +19,7 @@ from .kpi import KPI
 
 class MaxError(KPI):
     TAG = 'max_error'
-    LABEL = 'Max. Error'
+    LABEL = 'Max. absolute error'
     UNIT = 'm'
     TARGET = 'error'
 
@@ -40,5 +40,5 @@ class MaxError(KPI):
             assert self.is_iterable(input_values), 'Invalid input data'
             self._input_values = dict(error=input_values)
 
-        self._kpi_value = self.get_max_error(self._input_values['error'])
+        self._kpi_value = self.get_max_error(np.abs(self._input_values['error']))
         return self._kpi_value

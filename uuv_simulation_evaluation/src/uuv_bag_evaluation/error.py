@@ -19,17 +19,6 @@ from recording import Recording
 
 
 class TrajectoryError(object):
-    TAGS = ['x',
-            'y',
-            'z',
-            'position',
-            'linear_velocity',
-            'angular_velocity',
-            'angle',
-            'roll',
-            'pitch',
-            'yaw']
-
     def __init__(self, p_des, p_act):
         self.p_des = p_des
         self.p_act = p_act
@@ -82,6 +71,15 @@ class TrajectoryError(object):
 
 class ErrorSet(object):
     __instance = None
+    TAGS = ['x',
+            'y',
+            'z',
+            'position',
+            'linear_velocity',
+            'angular_velocity',            
+            'roll',
+            'pitch',
+            'yaw']
 
     def __init__(self):
         self._bag = None
@@ -99,36 +97,60 @@ class ErrorSet(object):
         self._bag = Recording.get_instance()
         assert self._bag is not None, 'Recording has not been created'
         assert self._bag.is_init, 'Topics have not been sorted from the rosbag'
-        t_start = self._bag.start_time
-        t_end = self._bag.end_time
 
-        self._errors = list()
+        if self._bag.errors is None:
+            t_start = self._bag.start_time
+            t_end = self._bag.end_time
 
-        for p_act in self._bag.actual.points:
-            if t_start <= p_act.t and p_act.t <= t_end:
-                if len(self._errors):
-                    if p_act.t <= self._errors[-1].t:
-                        continue
-                p_des = self._bag.desired.interpolate(p_act.t)
-                self._errors.append(TrajectoryError(p_des, p_act))
+            self._errors = list()
+
+            for p_act in self._bag.actual.points:
+                if t_start <= p_act.t and p_act.t <= t_end:
+                    if len(self._errors):
+                        if p_act.t <= self._errors[-1].t:
+                            continue
+                    p_des = self._bag.desired.interpolate(p_act.t)
+                    self._errors.append(TrajectoryError(p_des, p_act))
 
     @property
     def errors(self):
         return self._errors
 
     def get_time(self):
-        return np.array([e.t for e in self._errors])
-
-    def get_tags(self):
-        if len(self._errors):
-            return self._errors[0].TAGS
+        if self._bag.errors is None:
+            return np.array([e.t for e in self._errors])
         else:
-            return list()
+            return np.array([e.t for e in self._bag.errors.points])
+    def get_tags(self):
+        return self.TAGS
 
     def get_data(self, tag, time_offset=0.0):
-        if len(self._errors) == 0:
+        if tag not in self.TAGS:
             return None
-        if tag not in self._errors[0].tags:
-            return None
-        assert time_offset >= 0.0 and time_offset <= self._errors[-1].t, 'Time offset is off limits'
-        return [e.get_data(tag) for e in self._errors if e.t >= time_offset]
+
+        if self._bag.errors is None and len(self._errors):
+            assert time_offset >= 0.0 and time_offset <= self._errors[-1].t, 'Time offset is off limits'
+            return [e.get_data(tag) for e in self._errors if e.t >= time_offset]
+        elif self._bag.errors is not None:
+            assert time_offset >= 0.0 and time_offset <= self._bag.errors.time[-1], 'Time offset is off limits'
+
+            vec = None
+            if tag == 'x':
+                vec = [e.pos[0] for e in self._bag.errors.points if e.t >= time_offset]
+            elif tag == 'y':
+                vec = [e.pos[1] for e in self._bag.errors.points if e.t >= time_offset]
+            elif tag == 'z':
+                vec = [e.pos[2] for e in self._bag.errors.points if e.t >= time_offset]
+            elif tag == 'position':
+                vec = [e.pos for e in self._bag.errors.points if e.t >= time_offset]
+            elif tag == 'linear_velocity':
+                vec = [e.vel[0:3] for e in self._bag.errors.points if e.t >= time_offset]
+            elif tag == 'angular_velocity':
+                vec = [e.vel[4:6] for e in self._bag.errors.points if e.t >= time_offset]
+            elif tag == 'roll':
+                vec = [e.rot[0] for e in self._bag.errors.points if e.t >= time_offset]
+            elif tag == 'pitch':
+                vec = [e.rot[1] for e in self._bag.errors.points if e.t >= time_offset]
+            elif tag == 'yaw':
+                vec = [e.rot[2] for e in self._bag.errors.points if e.t >= time_offset]
+            return vec

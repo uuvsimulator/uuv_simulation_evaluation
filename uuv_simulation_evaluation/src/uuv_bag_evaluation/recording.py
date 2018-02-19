@@ -43,6 +43,9 @@ class Recording:
 
         for x in self._bag.get_type_and_topic_info():
             for k in x:
+                if 'error' in k and 'uuv_control_msgs/TrajectoryPoint' in x[k][0]:
+                    self._topics['error'] = k
+                    self._logger.info('Error topic found <%s>' % k)
                 if 'reference' in k:
                     self._topics['trajectory'] = k
                     self._logger.info('Trajectory topic found <%s>' % k)
@@ -66,6 +69,8 @@ class Recording:
 
         self._trajectories = dict(desired=None,
                                   actual=None)
+
+        self._error = None
 
         self._thrusters = dict()
 
@@ -110,6 +115,10 @@ class Recording:
         return self._trajectories['actual']
 
     @property
+    def errors(self):
+        return self._error
+
+    @property
     def n_thrusters(self):
         return len(self._thrusters.keys())
 
@@ -139,6 +148,11 @@ class Recording:
                         np.array([0, 0, 0]))
                     # Store sampled trajectory point
                     self._trajectories['actual'].add_trajectory_point(point)
+
+            if 'error' in self._topics:
+                self._error = TrajectoryGenerator()
+                for topic, msg, time in self._bag.read_messages(self._topics['error']):
+                    self._error.add_trajectory_point_from_msg(msg)
 
             # Find all thruster topics
             for i in range(16):
