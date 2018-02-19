@@ -184,8 +184,8 @@ class Evaluation(object):
                                     self._logger.info('Plot configuration in the wrong data type, tag=', tag + '/' + k)
                 else:
                     self._logger.warning('Invalid plot configuration file, using default values instead')
-        except:
-            self._logger.error('Error setting plot configurations, using default values instead')
+        except Exception, e:
+            self._logger.error('Error setting plot configurations, using default values instead, msg=' + str(e))
             self._plot_configs = deepcopy(self.PLOT_CONFIG)
 
         # Calculating the KPIs for this bag
@@ -332,42 +332,42 @@ class Evaluation(object):
                                       self._plot_configs['paths']['figsize'][1]))
             ax = fig.gca(projection='3d')
 
-            ax.plot([e.p_des.p[0] for e in self._error_set.errors],
-                    [e.p_des.p[1] for e in self._error_set.errors],
-                    [e.p_des.p[2] for e in self._error_set.errors],
+            ax.plot([e.p[0] for e in self._bag.desired.points],
+                    [e.p[1] for e in self._bag.desired.points],
+                    [e.p[2] for e in self._bag.desired.points],
                     'b--', label='Reference path',
                     linewidth=self._plot_configs['paths']['linewidth'])
 
-            ax.plot([e.p_act.p[0] for e in self._error_set.errors],
-                    [e.p_act.p[1] for e in self._error_set.errors],
-                    [e.p_act.p[2] for e in self._error_set.errors],
+            ax.plot([e.p[0] for e in self._bag.actual.points],
+                    [e.p[1] for e in self._bag.actual.points],
+                    [e.p[2] for e in self._bag.actual.points],
                     'g', label='Actual path',
                     linewidth=self._plot_configs['paths']['linewidth'])
 
-            ax.plot([self._error_set.errors[0].p_act.p[0]],
-                    [self._error_set.errors[0].p_act.p[1]],
-                    [self._error_set.errors[0].p_act.p[2]],
+            ax.plot([self._bag.actual.points[0].p[0]],
+                    [self._bag.actual.points[0].p[1]],
+                    [self._bag.actual.points[0].p[2]],
                     'ro', label='Starting position',
                     linewidth=self._plot_configs['paths']['linewidth'])
 
             # Calculating the boundaries of the paths
-            min_x = np.min([np.min([e.p_des.p[0] for e in self._error_set.errors]),
-                            np.min([e.p_act.p[0] for e in self._error_set.errors])])
+            min_x = np.min([np.min([e.p[0] for e in self._bag.desired.points]),
+                            np.min([e.p[0] for e in self._bag.actual.points])])
 
-            max_x = np.max([np.max([e.p_des.p[0] for e in self._error_set.errors]),
-                            np.max([e.p_act.p[0] for e in self._error_set.errors])])
+            max_x = np.max([np.max([e.p[0] for e in self._bag.desired.points]),
+                            np.max([e.p[0] for e in self._bag.actual.points])])
 
-            min_y = np.min([np.min([e.p_des.p[1] for e in self._error_set.errors]),
-                            np.min([e.p_act.p[1] for e in self._error_set.errors])])
+            min_y = np.min([np.min([e.p[1] for e in self._bag.desired.points]),
+                            np.min([e.p[1] for e in self._bag.actual.points])])
 
-            max_y = np.max([np.max([e.p_des.p[1] for e in self._error_set.errors]),
-                            np.max([e.p_act.p[1] for e in self._error_set.errors])])
+            max_y = np.max([np.max([e.p[1] for e in self._bag.desired.points]),
+                            np.max([e.p[1] for e in self._bag.actual.points])])
 
-            min_z = np.min([np.min([e.p_des.p[2] for e in self._error_set.errors]),
-                            np.min([e.p_act.p[2] for e in self._error_set.errors])])
+            min_z = np.min([np.min([e.p[2] for e in self._bag.desired.points]),
+                            np.min([e.p[2] for e in self._bag.actual.points])])
 
-            max_z = np.max([np.max([e.p_des.p[2] for e in self._error_set.errors]),
-                            np.max([e.p_act.p[2] for e in self._error_set.errors])])
+            max_z = np.max([np.max([e.p[2] for e in self._bag.desired.points]),
+                            np.max([e.p[2] for e in self._bag.actual.points])])
 
             ax.set_xlabel('X [m]',
                           fontsize=self._plot_configs['paths']['label_fontsize'])
@@ -432,47 +432,52 @@ class Evaluation(object):
                 raise Exception('Invalid output directory')
         try:
             output_path = (self._output_dir if output_dir is None else output_dir)
-            t = self._error_set.get_time()
-
+            
             fig = plt.figure(figsize=(self._plot_configs['trajectories']['figsize'][0],
                                       self._plot_configs['trajectories']['figsize'][1]))
             ax = fig.add_subplot(211)
 
-            min_value = np.min([np.min([e.p_act.p[0] for e in self._error_set.errors]),
-                                np.min([e.p_des.p[0] for e in self._error_set.errors]),
-                                np.min([e.p_act.p[1] for e in self._error_set.errors]),
-                                np.min([e.p_des.p[1] for e in self._error_set.errors]),
-                                np.min([e.p_act.p[2] for e in self._error_set.errors]),
-                                np.min([e.p_des.p[2] for e in self._error_set.errors])])
+            min_value = np.min([np.min([e.pos[0] for e in self._bag.actual.points]),
+                                np.min([e.pos[0] for e in self._bag.desired.points]),
+                                np.min([e.pos[1] for e in self._bag.actual.points]),
+                                np.min([e.pos[1] for e in self._bag.desired.points]),
+                                np.min([e.pos[2] for e in self._bag.actual.points]),
+                                np.min([e.pos[2] for e in self._bag.desired.points])])
 
-            max_value = np.max([np.max([e.p_act.p[0] for e in self._error_set.errors]),
-                                np.max([e.p_des.p[0] for e in self._error_set.errors]),
-                                np.max([e.p_act.p[1] for e in self._error_set.errors]),
-                                np.max([e.p_des.p[1] for e in self._error_set.errors]),
-                                np.max([e.p_act.p[2] for e in self._error_set.errors]),
-                                np.max([e.p_des.p[2] for e in self._error_set.errors])])
+            max_value = np.max([np.max([e.pos[0] for e in self._bag.actual.points]),
+                                np.max([e.pos[0] for e in self._bag.desired.points]),
+                                np.max([e.pos[1] for e in self._bag.actual.points]),
+                                np.max([e.pos[1] for e in self._bag.desired.points]),
+                                np.max([e.pos[2] for e in self._bag.actual.points]),
+                                np.max([e.pos[2] for e in self._bag.desired.points])])
 
             self.add_disturbance_activation_spans(ax, min_value, max_value)
 
             ax.set_title('Position',
                          fontsize=self._plot_configs['trajectories']['title_fontsize'])
-            ax.plot(t, [e.p_des.p[0] for e in self._error_set.errors], 'r--',
+            ax.plot(self._bag.desired.time, 
+                    [e.pos[0] for e in self._bag.desired.points], 'r--',
                     linewidth=self._plot_configs['trajectories']['linewidth'],
                     label=r'$X_d$')
-            ax.plot(t, [e.p_des.p[1] for e in self._error_set.errors], 'g--',
+            ax.plot(self._bag.desired.time, 
+                    [e.pos[1] for e in self._bag.desired.points], 'g--',
                     linewidth=self._plot_configs['trajectories']['linewidth'],
                     label=r'$Y_d$')
-            ax.plot(t, [e.p_des.p[2] for e in self._error_set.errors], 'b--',
+            ax.plot(self._bag.desired.time, 
+                    [e.pos[2] for e in self._bag.desired.points], 'b--',
                     linewidth=self._plot_configs['trajectories']['linewidth'],
                     label=r'$Z_d$')
 
-            ax.plot(t, [e.p_act.p[0] for e in self._error_set.errors], 'r',
+            ax.plot(self._bag.actual.time, 
+                    [e.pos[0] for e in self._bag.actual.points], 'r',
                     linewidth=self._plot_configs['trajectories']['linewidth'],
                     label=r'$X$')
-            ax.plot(t, [e.p_act.p[1] for e in self._error_set.errors], 'g',
+            ax.plot(self._bag.actual.time, 
+                    [e.pos[1] for e in self._bag.actual.points], 'g',
                     linewidth=self._plot_configs['trajectories']['linewidth'],
                     label=r'$Y$')
-            ax.plot(t, [e.p_act.p[2] for e in self._error_set.errors], 'b',
+            ax.plot(self._bag.actual.time, 
+                    [e.pos[2] for e in self._bag.actual.points], 'b',
                     linewidth=self._plot_configs['trajectories']['linewidth'],
                     label=r'$Z$')
 
@@ -487,40 +492,46 @@ class Evaluation(object):
                           fontsize=self._plot_configs['trajectories']['label_fontsize'])
             ax.set_ylabel('Position [m]',
                           fontsize=self._plot_configs['trajectories']['label_fontsize'])
-            ax.set_xlim(np.min(t), np.max(t))
+            ax.set_xlim(np.min(self._bag.desired.time), np.max(self._bag.desired.time))
             ax.set_ylim(1.05 * min_value, 1.05 * max_value)
 
             ax = fig.add_subplot(212)
 
-            min_value = np.min([np.min([trans.euler_from_quaternion(e.p_act.q)[0] for e in self._error_set.errors]),
-                                np.min([trans.euler_from_quaternion(e.p_des.q)[0] for e in self._error_set.errors]),
-                                np.min([trans.euler_from_quaternion(e.p_act.q)[1] for e in self._error_set.errors]),
-                                np.min([trans.euler_from_quaternion(e.p_des.q)[1] for e in self._error_set.errors]),
-                                np.min([trans.euler_from_quaternion(e.p_act.q)[2] for e in self._error_set.errors]),
-                                np.min([trans.euler_from_quaternion(e.p_des.q)[2] for e in self._error_set.errors])])
+            min_value = np.min([np.min([e.rot[0] for e in self._bag.actual.points]),
+                                np.min([e.rot[0] for e in self._bag.desired.points]),
+                                np.min([e.rot[1] for e in self._bag.actual.points]),
+                                np.min([e.rot[1] for e in self._bag.desired.points]),
+                                np.min([e.rot[2] for e in self._bag.actual.points]),
+                                np.min([e.rot[2] for e in self._bag.desired.points])])
 
-            max_value = np.max([np.max([trans.euler_from_quaternion(e.p_act.q)[0] for e in self._error_set.errors]),
-                                np.max([trans.euler_from_quaternion(e.p_des.q)[0] for e in self._error_set.errors]),
-                                np.max([trans.euler_from_quaternion(e.p_act.q)[1] for e in self._error_set.errors]),
-                                np.max([trans.euler_from_quaternion(e.p_des.q)[1] for e in self._error_set.errors]),
-                                np.max([trans.euler_from_quaternion(e.p_act.q)[2] for e in self._error_set.errors]),
-                                np.max([trans.euler_from_quaternion(e.p_des.q)[2] for e in self._error_set.errors])])
+            max_value = np.max([np.max([e.rot[0] for e in self._bag.actual.points]),
+                                np.max([e.rot[0] for e in self._bag.desired.points]),
+                                np.max([e.rot[1] for e in self._bag.actual.points]),
+                                np.max([e.rot[1] for e in self._bag.desired.points]),
+                                np.max([e.rot[2] for e in self._bag.actual.points]),
+                                np.max([e.rot[2] for e in self._bag.desired.points])])
 
             self.add_disturbance_activation_spans(ax, min_value, max_value)
 
             ax.set_title('Orientation', fontsize=self._plot_configs['trajectories']['title_fontsize'])
-            ax.plot(t, [trans.euler_from_quaternion(e.p_des.q)[0] for e in self._error_set.errors], 'r--',
+            ax.plot(self._bag.desired.time, 
+                    [e.rot[0] for e in self._bag.desired.points], 'r--',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\phi_d$')
-            ax.plot(t, [trans.euler_from_quaternion(e.p_des.q)[1] for e in self._error_set.errors], 'g--',
+            ax.plot(self._bag.desired.time, 
+                    [e.rot[1] for e in self._bag.desired.points], 'g--',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\theta_d$')
-            ax.plot(t, [trans.euler_from_quaternion(e.p_des.q)[2] for e in self._error_set.errors], 'b--',
+            ax.plot(self._bag.desired.time, 
+                    [e.rot[2] for e in self._bag.desired.points], 'b--',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\psi_d$')
 
-            ax.plot(t, [trans.euler_from_quaternion(e.p_act.q)[0] for e in self._error_set.errors], 'r',
+            ax.plot(self._bag.actual.time, 
+                    [e.rot[0] for e in self._bag.actual.points], 'r',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\phi$')
-            ax.plot(t, [trans.euler_from_quaternion(e.p_act.q)[1] for e in self._error_set.errors], 'g',
+            ax.plot(self._bag.actual.time, 
+                    [e.rot[1] for e in self._bag.actual.points], 'g',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\theta$')
-            ax.plot(t, [trans.euler_from_quaternion(e.p_act.q)[2] for e in self._error_set.errors], 'b',
+            ax.plot(self._bag.actual.time, 
+                    [e.rot[2] for e in self._bag.actual.points], 'b',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\psi$')
 
             ax.legend(fancybox=True, framealpha=0.7,
@@ -533,29 +544,103 @@ class Evaluation(object):
                           fontsize=self._plot_configs['trajectories']['label_fontsize'])
             ax.set_ylabel('Angles [rad]',
                           fontsize=self._plot_configs['trajectories']['label_fontsize'])
-            ax.set_xlim(np.min(t), np.max(t))
+            ax.set_xlim(np.min(self._bag.desired.time), np.max(self._bag.desired.time))
             ax.set_ylim(1.05 * min_value, 1.05 * max_value)
 
             plt.tight_layout()
             plt.savefig(os.path.join(output_path, 'trajectories_pose.pdf'))
             plt.close(fig)
 
+            ###################################################################
+
+            fig = plt.figure(figsize=(12, 8))
+            ax = fig.add_subplot(111)
+
+            ax.set_title('Quaternion trajectories',
+                         fontsize=self._plot_configs['trajectories']['title_fontsize'])
+            ax.plot(self._bag.desired.time, 
+                    [e.rotq[0] for e in self._bag.desired.points], 'r--',
+                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    label=r'$\epsilon_{x_d}$')
+            ax.plot(self._bag.desired.time, 
+                    [e.rotq[1] for e in self._bag.desired.points], 'g--',
+                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    label=r'$\epsilon_{y_d}$')
+            ax.plot(self._bag.desired.time, 
+                    [e.rotq[2] for e in self._bag.desired.points], 'b--',
+                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    label=r'$\epsilon_{z_d}$')
+
+            ax.plot(self._bag.actual.time, 
+                    [e.rotq[0] for e in self._bag.actual.points], 'r',
+                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    label=r'$\epsilon_{x}$')
+            ax.plot(self._bag.actual.time, 
+                    [e.rotq[1] for e in self._bag.actual.points], 'g',
+                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    label=r'$\epsilon_{y}$')
+            ax.plot(self._bag.actual.time, 
+                    [e.rotq[2] for e in self._bag.actual.points], 'b',
+                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    label=r'$\epsilon_{z}$')
+
+            ax.legend(fancybox=True, framealpha=0.7,
+                      loc=self._plot_configs['trajectories']['legend']['loc'],
+                      fontsize=self._plot_configs['trajectories']['legend']['fontsize'])
+            ax.grid(True)
+
+            ax.tick_params(axis='both',
+                           labelsize=self._plot_configs['trajectories']['tick_labelsize'])
+            ax.set_xlabel('Time [s]',
+                          fontsize=self._plot_configs['trajectories']['label_fontsize'])
+            ax.set_ylabel('Euler parameters',
+                          fontsize=self._plot_configs['trajectories']['label_fontsize'])
+
+            min_value = np.min([np.min([e.rotq[0] for e in self._bag.actual.points]),
+                                np.min([e.rotq[0] for e in self._bag.desired.points]),
+                                np.min([e.rotq[1] for e in self._bag.actual.points]),
+                                np.min([e.rotq[1] for e in self._bag.desired.points]),
+                                np.min([e.rotq[2] for e in self._bag.actual.points]),
+                                np.min([e.rotq[2] for e in self._bag.desired.points])])
+
+            max_value = np.max([np.max([e.rotq[0] for e in self._bag.actual.points]),
+                                np.max([e.rotq[0] for e in self._bag.desired.points]),
+                                np.max([e.rotq[1] for e in self._bag.actual.points]),
+                                np.max([e.rotq[1] for e in self._bag.desired.points]),
+                                np.max([e.rotq[2] for e in self._bag.actual.points]),
+                                np.max([e.rotq[2] for e in self._bag.desired.points])])
+
+            ax.set_xlim(np.min(self._bag.desired.time), np.max(self._bag.desired.time))
+            ax.set_ylim(1.05 * min_value, 1.05 * max_value)
+
+            plt.tight_layout()
+            plt.savefig(os.path.join(output_path, 'trajectories_quat.pdf'))
+            plt.close(fig)
+
+            ###################################################################
+
             fig = plt.figure(figsize=(self._plot_configs['trajectories']['figsize'][0],
                                       self._plot_configs['trajectories']['figsize'][1]))
             ax = fig.add_subplot(211)
             ax.set_title('Linear velocity', fontsize=20)
-            ax.plot(t, [e.p_des.v[0] for e in self._error_set.errors], 'r--',
+            ax.plot(self._bag.desired.time, 
+                    [e.vel[0] for e in self._bag.desired.points], 'r--',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\dot{X}_d$')
-            ax.plot(t, [e.p_des.v[1] for e in self._error_set.errors], 'g--',
+            ax.plot(self._bag.desired.time, 
+                    [e.vel[1] for e in self._bag.desired.points], 'g--',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\dot{Y}_d$')
-            ax.plot(t, [e.p_des.v[2] for e in self._error_set.errors], 'b--',
+            ax.plot(self._bag.desired.time, 
+                    [e.vel[2] for e in self._bag.desired.points], 'b--',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\dot{Z}_d$')
 
-            ax.plot(t, [e.p_act.v[0] for e in self._error_set.errors], 'r',
+            ax.plot(self._bag.actual.time, 
+                    [e.vel[0] for e in self._bag.actual.points], 'r',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\dot{X}$')
-            ax.plot(t, [e.p_act.v[1] for e in self._error_set.errors], 'g',
+            ax.plot(self._bag.actual.time, 
+                    [e.vel[1] for e in self._bag.actual.points], 'g',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\dot{Y}$')
-            ax.plot(t, [e.p_act.v[2] for e in self._error_set.errors], 'b',
+            ax.plot(self._bag.actual.time, 
+                    [e.vel[2] for e in self._bag.actual.points], 'b',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\dot{Z}$')
             ax.legend(fancybox=True, framealpha=0.9,
                       loc=self._plot_configs['trajectories']['legend']['loc'],
@@ -567,21 +652,28 @@ class Evaluation(object):
                           fontsize=self._plot_configs['trajectories']['label_fontsize'])
             ax.set_ylabel('Velocity [m/s]',
                           fontsize=self._plot_configs['trajectories']['label_fontsize'])
-            ax.set_xlim(np.min(t), np.max(t))
+            ax.set_xlim(np.min(self._bag.desired.time), np.max(self._bag.desired.time))
 
             ax = fig.add_subplot(212)
             ax.set_title('Angular velocity', fontsize=self._plot_configs['trajectories']['title_fontsize'])
-            ax.plot(t, [e.p_des.w[0] for e in self._error_set.errors], 'r--',
+            ax.plot(self._bag.desired.time, 
+                    [e.vel[3] for e in self._bag.desired.points], 'r--',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\omega_{x_d}$')
-            ax.plot(t, [e.p_des.w[1] for e in self._error_set.errors], 'g--',
+            ax.plot(self._bag.desired.time, 
+                    [e.vel[4] for e in self._bag.desired.points], 'g--',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\omega_{y_d}$')
-            ax.plot(t, [e.p_des.w[2] for e in self._error_set.errors], 'b--',
+            ax.plot(self._bag.desired.time, 
+                    [e.vel[5] for e in self._bag.desired.points], 'b--',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\omega_{z_d}$')
-            ax.plot(t, [e.p_act.w[0] for e in self._error_set.errors], 'r',
+
+            ax.plot(self._bag.actual.time, 
+                    [e.vel[3] for e in self._bag.actual.points], 'r',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\omega_x$')
-            ax.plot(t, [e.p_act.w[1] for e in self._error_set.errors], 'g',
+            ax.plot(self._bag.actual.time, 
+                    [e.vel[4] for e in self._bag.actual.points], 'g',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\omega_y$')
-            ax.plot(t, [e.p_act.w[2] for e in self._error_set.errors], 'b',
+            ax.plot(self._bag.actual.time, 
+                    [e.vel[5] for e in self._bag.actual.points], 'b',
                     linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\omega_z$')
             ax.legend(fancybox=True, framealpha=0.9,
                       loc=self._plot_configs['trajectories']['legend']['loc'],
@@ -593,7 +685,7 @@ class Evaluation(object):
                           fontsize=self._plot_configs['trajectories']['label_fontsize'])
             ax.set_ylabel('Angular velocity [rad/s]',
                           fontsize=self._plot_configs['trajectories']['label_fontsize'])
-            ax.set_xlim(np.min(t), np.max(t))
+            ax.set_xlim(np.min(self._bag.desired.time), np.max(self._bag.desired.time))
 
             plt.tight_layout()
             plt.savefig(os.path.join(output_path, 'trajectories_vel.pdf'))
@@ -844,9 +936,9 @@ class Evaluation(object):
             fig = plt.figure(figsize=(12, 8))
             ax = fig.add_subplot(211)
             ax.set_title('Position error', fontsize=20)
-            ax.plot(t, [e[0] for e in self._error_set.get_data('position')], 'r', label=r'$X$')
-            ax.plot(t, [e[1] for e in self._error_set.get_data('position')], 'g', label=r'$Y$')
-            ax.plot(t, [e[2] for e in self._error_set.get_data('position')], 'b', label=r'$Z$')
+            ax.plot(t, self._error_set.get_data('x'), 'r', label=r'$X$')
+            ax.plot(t, self._error_set.get_data('y'), 'g', label=r'$Y$')
+            ax.plot(t, self._error_set.get_data('z'), 'b', label=r'$Z$')
             ax.legend(fancybox=True, framealpha=0.9, loc='upper right', fontsize=18)
             ax.grid(True)
             ax.tick_params(axis='both', labelsize=16)
@@ -870,6 +962,8 @@ class Evaluation(object):
             plt.savefig(os.path.join(output_path, 'errors_pose.pdf'))
             plt.close(fig)
 
+            ##################################################################################
+
             fig = plt.figure(figsize=(12, 8))
             ax = fig.add_subplot(211)
             ax.set_title('Linear velocity error', fontsize=20)
@@ -885,9 +979,9 @@ class Evaluation(object):
 
             ax = fig.add_subplot(212)
             ax.set_title('Angular velocity error', fontsize=20)
-            ax.plot(t, [e[0] for e in self._error_set.get_data('angular_velocity')], 'r', label=r'$\omega_x$')
-            ax.plot(t, [e[1] for e in self._error_set.get_data('angular_velocity')], 'g', label=r'$\omega_y$')
-            ax.plot(t, [e[2] for e in self._error_set.get_data('angular_velocity')], 'b', label=r'$\omega_z$')
+            ax.plot(t, [e.vel[3] for e in self._error_set.get_data('angular_velocity')], 'r', label=r'$\omega_x$')
+            ax.plot(t, [e.vel[4] for e in self._error_set.get_data('angular_velocity')], 'g', label=r'$\omega_y$')
+            ax.plot(t, [e.vel[5] for e in self._error_set.get_data('angular_velocity')], 'b', label=r'$\omega_z$')
             ax.legend(fancybox=True, framealpha=0.9, loc='upper right', fontsize=18)
             ax.grid(True)
             ax.tick_params(axis='both', labelsize=16)
@@ -898,6 +992,27 @@ class Evaluation(object):
             plt.tight_layout()
             plt.savefig(os.path.join(output_path, 'errors_vel.pdf'))
             plt.close(fig)
+
+            ##################################################################################
+
+            if self._bag.errors is not None:
+                t = self._bag.errors.time
+                fig = plt.figure(figsize=(12, 8))
+                ax = fig.add_subplot(111)
+                ax.set_title('Quaternion orientation error', fontsize=20)
+                ax.plot(t, [e.rotq[0] for e in self._bag.errors.points], 'r', label=r'$\epsilon_x$')
+                ax.plot(t, [e.rotq[1] for e in self._bag.errors.points], 'g', label=r'$\epsilon_y$')
+                ax.plot(t, [e.rotq[2] for e in self._bag.errors.points], 'b', label=r'$\epsilon_z$')
+                ax.legend(fancybox=True, framealpha=0.9, loc='upper right', fontsize=18)
+                ax.grid(True)
+                ax.tick_params(axis='both', labelsize=16)
+                ax.set_xlabel('Time [s]', fontsize=18)
+                ax.set_ylabel('Error', fontsize=18)
+                ax.set_xlim(np.min(t), np.max(t))
+
+                plt.tight_layout()
+                plt.savefig(os.path.join(output_path, 'errors_quat.pdf'))
+                plt.close(fig)
         except Exception, e:
             self._logger.info('Error while plotting pose and velocity errors, message=' + str(e))
 
@@ -1058,7 +1173,11 @@ class Evaluation(object):
             kpi_labels = dict()
             for kpi in self._kpis:
                 item = kpi['func']
-                kpis[item.full_tag] = float(item.kpi_value)
+                try:
+                    value = float(item.kpi_value)
+                except Exception, e:
+                    value = 0.0
+                kpis[item.full_tag] = value
                 kpi_labels[item.full_tag] = kpi['func'].label
             with open(os.path.join(output_path, 'computed_kpis.yaml'), 'w') as kpi_file:
                 yaml.dump(kpis, kpi_file, default_flow_style=False)
