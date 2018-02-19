@@ -23,26 +23,32 @@ class MaxAbsThrust(KPI):
     UNIT = 'N'
     TARGET = 'thruster'
 
-
     def __init__(self, use_bag=True, time_offset=0.0):
         KPI.__init__(self, use_bag, time_offset)
 
+        t = None
         if self._bag is not None:
             # Initialize the data structure for this KPI
             self._input_values = dict()
-            self._t = None
             for i in range(self._bag.n_thrusters):
                 t, thrusts = self._bag.get_thruster_data(i)
-                if self._t is None:
-                    self._t = np.array(t)
-                    assert time_offset < np.max(self._t), 'Time offset out of range'                
+                t = np.array(t)
+                assert time_offset < np.max(t), 'Time offset out of range'
                 self._input_values[i] = np.array(thrusts)
-                self._input_values[i] = self._input_values[i][np.nonzero(self._t >= self._time_offset)[0]]
+                try:
+                    filt = np.nonzero(t >= self._time_offset)[0]
+                    if filt.shape == self._input_values[i].shape:
+                        self._input_values[i] = self._input_values[i][filt]
+                except Exception, e:
+                    print 'Error occurred while parsing vectors, msg=' + str(e)
+                    self._input_values = None
         else:
             self._input_values = None
 
     def compute(self, input_values=None):
-        assert input_values is not None or self._input_values is not None, 'No input data to process'
+        if input_values is None and self._input_values is None:
+            print 'MaxAbsThrust - No input data to process'
+            return -1
 
         if self._input_values is None:
             assert type(input_values) is dict, 'Input dict is not a dictionary'
