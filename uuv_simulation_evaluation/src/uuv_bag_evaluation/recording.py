@@ -153,6 +153,7 @@ class Recording:
                 self._error = TrajectoryGenerator()
                 for topic, msg, time in self._bag.read_messages(self._topics['error']):
                     self._error.add_trajectory_point_from_msg(msg)
+                self._logger.info('Error topic loaded')
 
             # Find all thruster topics
             for i in range(16):

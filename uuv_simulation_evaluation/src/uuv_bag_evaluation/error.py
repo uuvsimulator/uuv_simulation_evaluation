@@ -146,7 +146,7 @@ class ErrorSet(object):
             elif tag == 'linear_velocity':
                 vec = [e.vel[0:3] for e in self._bag.errors.points if e.t >= time_offset]
             elif tag == 'angular_velocity':
-                vec = [e.vel[4:6] for e in self._bag.errors.points if e.t >= time_offset]
+                vec = [e.vel[3:6] for e in self._bag.errors.points if e.t >= time_offset]
             elif tag == 'roll':
                 vec = [e.rot[0] for e in self._bag.errors.points if e.t >= time_offset]
             elif tag == 'pitch':
