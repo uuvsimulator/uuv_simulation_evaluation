@@ -979,9 +979,9 @@ class Evaluation(object):
 
             ax = fig.add_subplot(212)
             ax.set_title('Angular velocity error', fontsize=20)
-            ax.plot(t, [e.vel[3] for e in self._error_set.get_data('angular_velocity')], 'r', label=r'$\omega_x$')
-            ax.plot(t, [e.vel[4] for e in self._error_set.get_data('angular_velocity')], 'g', label=r'$\omega_y$')
-            ax.plot(t, [e.vel[5] for e in self._error_set.get_data('angular_velocity')], 'b', label=r'$\omega_z$')
+            ax.plot(t, [e[0] for e in self._error_set.get_data('angular_velocity')], 'r', label=r'$\omega_x$')
+            ax.plot(t, [e[1] for e in self._error_set.get_data('angular_velocity')], 'g', label=r'$\omega_y$')
+            ax.plot(t, [e[2] for e in self._error_set.get_data('angular_velocity')], 'b', label=r'$\omega_z$')
             ax.legend(fancybox=True, framealpha=0.9, loc='upper right', fontsize=18)
             ax.grid(True)
             ax.tick_params(axis='both', labelsize=16)
@@ -1014,7 +1014,7 @@ class Evaluation(object):
                 plt.savefig(os.path.join(output_path, 'errors_quat.pdf'))
                 plt.close(fig)
         except Exception, e:
-            self._logger.info('Error while plotting pose and velocity errors, message=' + str(e))
+            self._logger.error('Error while plotting pose and velocity errors, message=' + str(e))
 
     def plot_current(self, output_dir=None):
         if output_dir is not None:
