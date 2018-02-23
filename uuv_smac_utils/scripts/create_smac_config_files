@@ -28,7 +28,7 @@ roslib.load_manifest('uuv_smac_utils')
 KPIS = list()
 for kpi in uuv_bag_evaluation.metrics.KPI.get_all_kpi_tags():
     if uuv_bag_evaluation.metrics.KPI.get_kpi_target(kpi) == 'error':
-        for error_tag in uuv_bag_evaluation.TrajectoryError.TAGS:
+        for error_tag in uuv_bag_evaluation.error.ErrorSet.TAGS:
             KPIS.append('%s_%s' % (kpi, error_tag))
     else:
         KPIS.append(kpi)

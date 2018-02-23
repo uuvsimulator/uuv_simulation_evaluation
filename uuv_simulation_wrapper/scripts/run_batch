@@ -26,7 +26,7 @@ import numpy as np
 from time import sleep
 from copy import deepcopy
 from uuv_simulation_runner import SimulationRunner
-from bag_evaluation import Evaluation
+from uuv_bag_evaluation import Evaluation
 from uuv_cost_function import CostFunction
 
 

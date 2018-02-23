@@ -100,6 +100,10 @@ if __name__ == '__main__':
     with open(os.path.join(args.input_dir, 'opt_config.yml'), 'r') as c_file:
         opt_config = yaml.load(c_file)
 
+    time_offset = 0.0
+    if 'evaluation_time_offset' in opt_config:
+        time_offset = max(0.0, opt_config['evaluation_time_offset'])
+
     assert 'cost_fcn' in opt_config, 'Cost function configuration available'
     assert 'input_map' in opt_config, 'Input parameter map is not available'
     assert 'parameters' in opt_config, 'Parameter labels is not available'
@@ -156,7 +160,9 @@ if __name__ == '__main__':
                 runner = SimulationRunner(params, task, sub_result_folder, True, add_folder_timestamp=False)
                 runner.run(params)
 
-                sim_eval = Evaluation(runner.recording_filename, runner.current_sim_results_dir)
+                sim_eval = Evaluation(runner.recording_filename, 
+                                      runner.current_sim_results_dir, 
+                                      time_offset=time_offset)
                 sim_eval.compute_kpis()
                 sim_eval.save_evaluation()
 
@@ -218,7 +224,7 @@ if __name__ == '__main__':
                 bag_filename = os.path.join(bag_path, 'recording.bag')
                 if os.path.isfile(bag_filename):
                     print bag_filename
-                    sim_eval = Evaluation(bag_filename, bag_path)
+                    sim_eval = Evaluation(bag_filename, bag_path, time_offset=time_offset)
                     sim_eval.compute_kpis()
                     sim_eval.save_evaluation()
 
@@ -266,15 +272,15 @@ if __name__ == '__main__':
         ########################################################################
 
         cost[0] = cost[1]
-        fig = plt.figure(figsize=(12, 5.5))
+        fig = plt.figure(figsize=(6, 4))
         ax = fig.add_subplot(111)
 
         ax.plot(evals, cost, '--b', linewidth=3, zorder=1)
         ax.scatter(evals, cost, s=60, color='red', zorder=2)
 
-        ax.set_xlabel('Number of evaluations', fontsize=30)
-        ax.set_ylabel('Cost function', fontsize=30)
-        ax.tick_params(axis='both', labelsize=25)
+        ax.set_xlabel('Number of evaluations', fontsize=20)
+        ax.set_ylabel('Cost function', fontsize=20)
+        ax.tick_params(axis='both', labelsize=18)
         ax.grid(True)
         ax.set_xlim(np.min(evals), np.max(evals))
         plt.tight_layout()
@@ -349,7 +355,7 @@ if __name__ == '__main__':
         # Compare position error
         ########################################################################
 
-        fig = plt.figure(figsize=(12, 10))
+        fig = plt.figure(figsize=(10, 6))
 
         # Plot position error
         ax = fig.add_subplot(211)
@@ -378,7 +384,7 @@ if __name__ == '__main__':
 
         ax.set_xlabel('Time [s]', fontsize=20)
         ax.set_ylabel('Position error [m]', fontsize=20)
-        ax.legend(fancybox=True, framealpha=1, loc='upper left', fontsize=16)
+        ax.legend(fancybox=True, framealpha=0.9, loc='upper left', fontsize=16)
         ax.grid(True)
         ax.tick_params(axis='both', labelsize=15)
         ax.set_xlim(np.min(error_t[0]), np.max(error_t[0]))
@@ -412,7 +418,7 @@ if __name__ == '__main__':
 
         ax.set_xlabel('Time [s]', fontsize=20)
         ax.set_ylabel('Heading error [rad]', fontsize=20)
-        ax.legend(fancybox=True, framealpha=1, loc='upper left', fontsize=16)
+        ax.legend(fancybox=True, framealpha=0.9, loc='upper left', fontsize=16)
         ax.grid(True)
         ax.tick_params(axis='both', labelsize=15)
         ax.set_xlim(np.min(error_t[0]), np.max(error_t[0]))

@@ -31,6 +31,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze bag file")
     parser.add_argument('--bagfile', type=str)
     parser.add_argument('--output_dir', type=str, default='./results')
+    parser.add_argument('--time_offset', type=float, default=0.0)
 
     args = parser.parse_args(rospy.myargv()[1:])
 
@@ -38,10 +39,12 @@ if __name__ == "__main__":
     assert args.output_dir is not None, 'No output directory provided'
     assert os.path.isfile(args.bagfile), 'Invalid bag file'
 
+    time_offset = max(args.time_offset, 0.0)
+
     if not os.path.isdir(args.output_dir):
         os.makedirs(args.output_dir)
 
-    sim_eval = Evaluation(args.bagfile, args.output_dir)
+    sim_eval = Evaluation(args.bagfile, args.output_dir, time_offset=time_offset)
 
     sim_eval.compute_kpis()
     sim_eval.save_evaluation()
