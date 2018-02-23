@@ -34,7 +34,7 @@ try:
 except Exception, e:
     print 'Cannot use Latex configuration with matplotlib, message=', str(e)
 
-roslib.load_manifest('uuv_evaluation')
+roslib.load_manifest('uuv_simulation_evaluation')
 
 
 """
@@ -394,6 +394,7 @@ if __name__ == '__main__':
             p = os.path.join(d, item)
             if os.path.isdir(p):
                 if 'recording.bag' not in os.listdir(p):
+                    logger.info('ROS bag not found')
                     continue
                 cur_kpi = None
                 try:
@@ -445,6 +446,7 @@ if __name__ == '__main__':
         worst_kpi_labels = list()
 
         for d, i in zip(args.input_dir, range(len(args.input_dir))):
+            print kpis            
             kpi[d] = [kpis[d][k][tag] for k in range(len(kpis[d]))]
             min_idx[d] = np.argmin(kpi[d])
             max_idx[d] = np.argmax(kpi[d])
