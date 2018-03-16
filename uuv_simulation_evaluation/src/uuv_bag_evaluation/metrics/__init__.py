@@ -18,4 +18,5 @@ from .max_abs_thrust import MaxAbsThrust
 from .mean_abs_thrust import MeanAbsThrust
 from .rms_error import RMSError
 from .max_error import MaxError
-from .mean_error import MeanError
+from .mean_abs_error import MeanAbsoluteError
+from .euclidean_error import EuclideanError

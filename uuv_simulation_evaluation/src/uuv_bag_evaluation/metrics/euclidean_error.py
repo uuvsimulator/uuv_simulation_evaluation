@@ -17,9 +17,9 @@ import numpy as np
 from .kpi import KPI
 
 
-class MeanError(KPI):
-    TAG = 'mean_error'
-    LABEL = 'Mean Error'
+class EuclideanError(KPI):
+    TAG = 'euclidean_error'
+    LABEL = 'Euclidean Error'
     UNIT = 'm'
     TARGET = 'error'
 
@@ -40,5 +40,5 @@ class MeanError(KPI):
             assert self.is_iterable(input_values), 'Invalid input data'
             self._input_values = dict(error=np.array(input_values))
 
-        self._kpi_value = self.get_mean_error(self._input_values['error'])
+        self._kpi_value = np.sqrt(np.sum(self.get_squared(self._input_values['error'])))
         return self._kpi_value
