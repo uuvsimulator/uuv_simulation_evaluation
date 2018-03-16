@@ -129,6 +129,10 @@ if __name__ == '__main__':
         cost_function = CostFunction()
         cost_function.from_dict(grid_config['cost_fcn'])
 
+    time_offset = 0.0
+    if 'time_offset' in grid_config:
+        time_offset = max(0.0, grid_config['time_offset'])
+
     # In case the tasks folder is empty, create the tasks
     if len(os.listdir(tasks_dir)) == 0:
         use_monte_carlo = False
@@ -207,8 +211,7 @@ if __name__ == '__main__':
                 logger.info('Starting simulation...')
                 logger.info('\tTask=' + task)
                 logger.info('\tResults directory=' + results_dir)
-
-                time_offset = 5
+                
                 runner = SimulationRunner(dict(),
                                           os.path.join(tasks_dir, task),
                                           results_dir,
