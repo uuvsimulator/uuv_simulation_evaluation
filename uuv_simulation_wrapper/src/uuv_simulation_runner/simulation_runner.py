@@ -238,7 +238,7 @@ class SimulationRunner(object):
                     if timeout > 0:
                         self._timeout = timeout
                 self._logger.info('Process timeout t=%.f s' % self._timeout)
-
+                
                 cmd = cmd + 'bag_filename:=\"' + self._recording_filename + '\" '
 
                 for param in self._params:

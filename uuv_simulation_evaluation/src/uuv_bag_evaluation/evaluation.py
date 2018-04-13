@@ -43,7 +43,7 @@ class Evaluation(object):
                                 labelpad=10,
                                 legend=dict(loc='upper right',
                                             fontsize=18)),
-                     trajectories=dict(figsize=[12, 16],
+                     trajectories=dict(figsize=[12, 18],
                                        linewidth=2,
                                        label_fontsize=24,
                                        title_fontsize=26,
@@ -56,11 +56,11 @@ class Evaluation(object):
                                                    fontsize=20)),
                      errors=dict(figsize=[12, 8],
                                  linewidth=2,
-                                 label_fontsize=18,
+                                 label_fontsize=20,
                                  xlim=None,
                                  ylim=None,
                                  zlim=None,
-                                 tick_labelsize=16,
+                                 tick_labelsize=18,
                                  labelpad=10,
                                  legend=dict(loc='upper right',
                                              fontsize=18)),
@@ -74,7 +74,7 @@ class Evaluation(object):
                                           labelpad=10,
                                           legend=dict(loc='upper right',
                                                       fontsize=18)),
-                     current=dict(figsize=[12, 8],
+                     current=dict(figsize=[12, 6],
                                   linewidth=2,
                                   label_fontsize=30,
                                   xlim=None,
@@ -83,7 +83,7 @@ class Evaluation(object):
                                   tick_labelsize=25,
                                   labelpad=10,
                                   legend=dict(loc='upper right',
-                                              fontsize=18)),
+                                              fontsize=25)),
                      wrenches=dict(figsize=[12, 8],
                                    linewidth=2,
                                    label_fontsize=30,
@@ -296,7 +296,7 @@ class Evaluation(object):
         return self._error_set.get_time()
 
     def get_error_from_data(self, tag):
-        return KPI.get_error(self._error_set.get_data(tag))
+        return self._error_set.get_data(tag)
 
     def get_error_set_data(self, tag):
         return self._error_set.get_data(tag)
@@ -416,6 +416,8 @@ class Evaluation(object):
             # inertial reference frame
             if min_z >= 0 and max_z >= 0:
                 plt.gca().invert_zaxis()
+
+            ax.view_init(elev=15, azim=30)
 
             output_path = (self._output_dir if output_dir is None else output_dir)
             filename = os.path.join(output_path, 'paths.pdf')
@@ -736,7 +738,7 @@ class Evaluation(object):
             plt.close(fig)
 
             # All thrust outputs
-            fig_all = plt.figure(figsize=(self._plot_configs['thruster_output']['figsize'][0], 8))
+            fig_all = plt.figure(figsize=(self._plot_configs['thruster_output']['figsize'][0], 6))
 
             ax_all = fig_all.gca()
 
@@ -767,7 +769,7 @@ class Evaluation(object):
             plt.close(fig_all)
 
             # Average thruster output
-            fig_avg = plt.figure(figsize=(self._plot_configs['thruster_output']['figsize'][0], 8))
+            fig_avg = plt.figure(figsize=(self._plot_configs['thruster_output']['figsize'][0], 6))
             ax_avg = fig_avg.gca()
 
             t0, values = self._bag.get_thruster_data(0)

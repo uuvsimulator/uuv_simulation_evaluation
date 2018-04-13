@@ -14,11 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# DEP PACKAGES
-apt -qq install --no-install-recommends --allow-unauthenticated -y \
-  build-essential python-catkin-tools python-pip dvi2ps dvipng binutils \
-  mesa-utils module-init-tools x-window-system
+sh -c 'echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_release -cs` main" > /etc/apt/sources.list.d/gazebo-stable.list'
 
-# SETUP OTHER DEPENDENCIES FOR UUV SIMULATOR
-mkdir -p $CATKIN_WORKSPACE/src
-git clone https://github.com/uuvsimulator/uuv_simulator.git $CATKIN_WORKSPACE/src/uuv_simulator
+wget http://packages.osrfoundation.org/gazebo.key -O /tmp/gazebo.key
+
+apt-key add /tmp/gazebo.key
+
+apt update
+
+apt -qq install --no-install-recommends --allow-unauthenticated -y gazebo7 libgazebo7-dev ros-indigo-gazebo7-*
+
+source /usr/share/gazebo-7/setup.sh
