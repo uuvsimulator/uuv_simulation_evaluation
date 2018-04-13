@@ -33,7 +33,7 @@ except Exception, e:
     print 'Cannot use Latex configuration with matplotlib, message=', str(e)
 
 class Evaluation(object):
-    PLOT_CONFIG = dict(paths=dict(figsize=[12, 8],
+    PLOT_CONFIG = dict(paths=dict(figsize=[12, 10],
                                 linewidth=3,
                                 label_fontsize=20,
                                 xlim=None,
@@ -54,7 +54,7 @@ class Evaluation(object):
                                        labelpad=10,
                                        legend=dict(loc='upper right',
                                                    fontsize=20)),
-                     errors=dict(figsize=[12, 8],
+                     errors=dict(figsize=[12, 5],
                                  linewidth=2,
                                  label_fontsize=20,
                                  xlim=None,
@@ -73,8 +73,8 @@ class Evaluation(object):
                                           tick_labelsize=25,
                                           labelpad=10,
                                           legend=dict(loc='upper right',
-                                                      fontsize=18)),
-                     current=dict(figsize=[12, 6],
+                                                      fontsize=20)),
+                     current=dict(figsize=[12, 5],
                                   linewidth=2,
                                   label_fontsize=30,
                                   xlim=None,
@@ -84,7 +84,7 @@ class Evaluation(object):
                                   labelpad=10,
                                   legend=dict(loc='upper right',
                                               fontsize=25)),
-                     wrenches=dict(figsize=[12, 8],
+                     wrenches=dict(figsize=[12, 5],
                                    linewidth=2,
                                    label_fontsize=30,
                                    xlim=None,
@@ -94,7 +94,7 @@ class Evaluation(object):
                                    labelpad=10,
                                    legend=dict(loc='upper right',
                                                fontsize=18)),
-                     error_dist=dict(figsize=[12, 8],
+                     error_dist=dict(figsize=[12, 5],
                                      linewidth=3,
                                      label_fontsize=30,
                                      xlim=None,
@@ -173,7 +173,6 @@ class Evaluation(object):
                             continue
                         for k in p_config[tag]:
                             if k in self._plot_configs[tag]:
-
                                 if type(p_config[tag][k]) == type(self._plot_configs[tag][k]):
                                     if k == 'legend':
                                         if 'loc' not in p_config[tag][k] or 'fontsize' not in p_config[tag][k]:
@@ -552,9 +551,14 @@ class Evaluation(object):
             plt.tight_layout()
             plt.savefig(os.path.join(output_path, 'trajectories_pose.pdf'))
             plt.close(fig)
+            del fig
+        except Exception, e:
+            self._logger.error('Error plotting output pose vectors, error=' + str(e))
 
+        try:
             ###################################################################
-
+            # Plot quaternion trajectories
+            ###################################################################
             fig = plt.figure(figsize=(12, 8))
             ax = fig.add_subplot(111)
 
@@ -618,7 +622,13 @@ class Evaluation(object):
             plt.tight_layout()
             plt.savefig(os.path.join(output_path, 'trajectories_quat.pdf'))
             plt.close(fig)
+            del fig
+        except Exception, e:
+            self._logger.error('Error plotting output quaternion vectors, error=' + str(e))
 
+        try:
+            ###################################################################
+            # Plot velocities
             ###################################################################
 
             fig = plt.figure(figsize=(self._plot_configs['trajectories']['figsize'][0],
@@ -692,8 +702,9 @@ class Evaluation(object):
             plt.tight_layout()
             plt.savefig(os.path.join(output_path, 'trajectories_vel.pdf'))
             plt.close(fig)
+            del fig
         except Exception, e:
-            self._logger.error('Error plotting trajectories, error=' + str(e))
+            self._logger.error('Error plotting output velocities, error=' + str(e))
 
     def plot_thruster_output(self, output_dir=None):
         if output_dir is not None:
@@ -701,6 +712,9 @@ class Evaluation(object):
                 self._logger.error('Invalid output directory, dir=' + str(output_dir))
                 raise Exception('Invalid output directory')
         try:
+            ##############################################################################
+            # Plot individual thruster outputs
+            ##############################################################################
             fig, ax = plt.subplots(self._bag.n_thrusters, 1,
                                    figsize=(self._plot_configs['thruster_output']['figsize'][0],
                                             self._bag.n_thrusters * self._plot_configs['thruster_output']['figsize'][1]))
@@ -717,11 +731,9 @@ class Evaluation(object):
                         linewidth=self._plot_configs['thruster_output']['linewidth'],
                         label='%d' % i)
 
-
-
                 ax[i].set_xlabel('Time [s]',
                                  fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-                ax[i].set_ylabel(r'Thrust output \#$%d$ [N]' % i,
+                ax[i].set_ylabel(r'$\tau_%d$ [N]' % i,
                                  fontsize=self._plot_configs['thruster_output']['label_fontsize'])
                 ax[i].tick_params(axis='both',
                                   labelsize=self._plot_configs['thruster_output']['tick_labelsize'])
@@ -736,9 +748,16 @@ class Evaluation(object):
             filename = os.path.join(output_path, 'thrusts.pdf')
             fig.savefig(filename)
             plt.close(fig)
+            del fig
+        except Exception, e:
+            self._logger.error('Error plotting individual thruster outputs, message=' + str(e))
 
+        try:
+            ##############################################################################
             # All thrust outputs
-            fig_all = plt.figure(figsize=(self._plot_configs['thruster_output']['figsize'][0], 6))
+            ##############################################################################
+            fig_all = plt.figure(figsize=(self._plot_configs['thruster_output']['figsize'][0], 
+                                          self._plot_configs['thruster_output']['figsize'][1]))
 
             ax_all = fig_all.gca()
 
@@ -760,6 +779,10 @@ class Evaluation(object):
             ax_all.set_xlim(np.min(t), np.max(t))
             ax_all.set_ylim(-max_y, max_y)
 
+            ax_all.legend(fancybox=True, framealpha=1,
+                          loc=self._plot_configs['thruster_output']['legend']['loc'],
+                          fontsize=self._plot_configs['thruster_output']['legend']['fontsize'])
+
             plt.gcf().subplots_adjust(left=0.15, bottom=0.15)
             fig_all.tight_layout()
 
@@ -767,9 +790,16 @@ class Evaluation(object):
             filename = os.path.join(output_path, 'thrusts_all.pdf')
             fig_all.savefig(filename)
             plt.close(fig_all)
+            del fig_all
+        except Exception, e:
+            self._logger.error('Error plotting all thruster output, message=' + str(e))
 
+        try:
+            ##############################################################################
             # Average thruster output
-            fig_avg = plt.figure(figsize=(self._plot_configs['thruster_output']['figsize'][0], 6))
+            ##############################################################################
+            fig_avg = plt.figure(figsize=(self._plot_configs['thruster_output']['figsize'][0], 
+                                          self._plot_configs['thruster_output']['figsize'][1]))
             ax_avg = fig_avg.gca()
 
             t0, values = self._bag.get_thruster_data(0)
@@ -786,11 +816,11 @@ class Evaluation(object):
             ax_avg.plot(t0,
                         thrust_sum,
                         linewidth=self._plot_configs['thruster_output']['linewidth'],
-                        label='%d' % i)
+                        label=r'$%d$' % i)
 
             ax_avg.set_xlabel('Time [s]',
                               fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-            ax_avg.set_ylabel(r'Average absolute thrust output [N]',
+            ax_avg.set_ylabel(r'$\frac{1}{N} \sum_{i=1}^{N} \tau_i$ [N]',
                               fontsize=self._plot_configs['thruster_output']['label_fontsize'])
             ax_avg.tick_params(axis='both',
                                labelsize=self._plot_configs['thruster_output']['tick_labelsize'])
@@ -804,19 +834,26 @@ class Evaluation(object):
             filename = os.path.join(output_path, 'thrusts_avg.pdf')
             fig_avg.savefig(filename)
             plt.close(fig_avg)
+            del fig_avg
+        except Exception, e:
+            self._logger.error('Error plotting average thrust force output, message=' + str(e))
 
+        try:
+            ##############################################################################
             # Maximum thruster output for each time step
-            fig_max = plt.figure(figsize=(self._plot_configs['thruster_output']['figsize'][0], 8))
+            ##############################################################################
+            fig_max = plt.figure(figsize=(self._plot_configs['thruster_output']['figsize'][0],
+                                          self._plot_configs['thruster_output']['figsize'][1]))
             ax_max = fig_max.gca()
             self._logger.info('Plotting maximum element-wise values for the thrust forces')
             ax_max.plot(t0,
                         thrust_max,
                         linewidth=self._plot_configs['thruster_output']['linewidth'],
-                        label='%d' % i)
+                        label=r'$%d$' % i)
 
             ax_max.set_xlabel('Time [s]',
                               fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-            ax_max.set_ylabel(r'Maximum absolute thrust output [N]',
+            ax_max.set_ylabel(r'max $| \tau_i |$ [N]',
                               fontsize=self._plot_configs['thruster_output']['label_fontsize'])
             ax_max.tick_params(axis='both',
                                labelsize=self._plot_configs['thruster_output']['tick_labelsize'])
@@ -830,8 +867,142 @@ class Evaluation(object):
             filename = os.path.join(output_path, 'thrusts_max.pdf')
             fig_max.savefig(filename)
             plt.close(fig_max)
+            del fig_max
         except Exception, e:
-            self._logger.error('Error plotting thrust forces, message=' + str(e))
+            self._logger.error('Error plotting maximum thruster output, message=' + str(e))
+
+        try:
+            ##############################################################################
+            # Plot thruster command input data
+            ##############################################################################
+            fig_in = plt.figure(figsize=(self._plot_configs['thruster_output']['figsize'][0],
+                                         self._plot_configs['thruster_output']['figsize'][1]))
+            ax_min = fig_in.gca()
+            self._logger.info('Plotting the input command signals for each thruster unit')
+
+            min_t = 0
+            max_t = 0
+
+            min_y = 0
+            max_y = 0
+            for i in range(self._bag.n_thrusters):
+                t, values = self._bag.get_thruster_input_data(i)
+                ax_min.plot(t,
+                        values,
+                        linewidth=self._plot_configs['thruster_output']['linewidth'],
+                        label='%d' % i)
+                max_t = max(max_t, np.max(t))
+                min_y = min(min_y, np.min(values))
+                max_y = max(max_y, np.max(values))
+
+            ax_min.set_xlabel(r'Time [s]',
+                              fontsize=self._plot_configs['thruster_output']['label_fontsize'])
+            ax_min.set_ylabel(r'Thrust input [rad/s]',
+                              fontsize=self._plot_configs['thruster_output']['label_fontsize'])
+            ax_min.tick_params(axis='both',
+                               labelsize=self._plot_configs['thruster_output']['tick_labelsize'])
+
+            ax_min.legend(fancybox=True, framealpha=1,
+                          loc=self._plot_configs['thruster_output']['legend']['loc'],
+                          fontsize=self._plot_configs['thruster_output']['legend']['fontsize'])
+
+            ax_min.grid(True)
+            ax_min.set_xlim(min_t, max_t)            
+            ax_min.set_ylim(min_y, max_y)
+
+            fig_in.tight_layout()
+            output_path = (self._output_dir if output_dir is None else output_dir)
+            filename = os.path.join(output_path, 'thruster_input.pdf')
+            fig_in.savefig(filename)
+            plt.close(fig_in)
+            del fig_in
+        except Exception, e:
+            self._logger.error('Error plotting thruster input command, message=' + str(e))
+
+        try:
+            ##############################################################################
+            # Plot thruster manager input data
+            ##############################################################################
+            fig_tm, ax_tm = plt.subplots(
+                2, 1,
+                figsize=(self._plot_configs['thruster_output']['figsize'][0],
+                         2 * self._plot_configs['thruster_output']['figsize'][1]))
+            self._logger.info('Plotting the input wrench of the thruster manager')
+
+            min_y = 0
+            max_y = 0
+            t, force, torque = self._bag.get_thruster_manager_input()            
+            ax_tm[0].plot(t, [f[0] for f in force],
+                            linewidth=self._plot_configs['thruster_output']['linewidth'],
+                            label=r'$X$')
+            min_y = min(min_y, np.min([f[0] for f in force]))
+            max_y = max(max_y, np.max([f[0] for f in force]))
+            ax_tm[0].plot(t, [f[1] for f in force],
+                            linewidth=self._plot_configs['thruster_output']['linewidth'],
+                            label=r'$Y$')
+            min_y = min(min_y, np.min([f[1] for f in force]))
+            max_y = max(max_y, np.max([f[1] for f in force]))
+            ax_tm[0].plot(t, [f[2] for f in force],
+                            linewidth=self._plot_configs['thruster_output']['linewidth'],
+                            label=r'$Z$')
+            min_y = min(min_y, np.min([f[2] for f in force]))
+            max_y = max(max_y, np.max([f[2] for f in force]))
+
+            ax_tm[0].set_xlabel(r'Time [s]',
+                                fontsize=self._plot_configs['thruster_output']['label_fontsize'])
+            ax_tm[0].set_ylabel(r'Forces [N]',
+                                fontsize=self._plot_configs['thruster_output']['label_fontsize'])
+            ax_tm[0].tick_params(axis='both',
+                                    labelsize=self._plot_configs['thruster_output']['tick_labelsize'])
+            ax_tm[0].grid(True)
+            ax_tm[0].set_xlim(np.min(t), np.max(t))            
+            ax_tm[0].set_ylim(min_y, max_y)
+
+            ax_tm[0].legend(fancybox=True, framealpha=1,
+                            loc=self._plot_configs['thruster_output']['legend']['loc'],
+                            fontsize=self._plot_configs['thruster_output']['legend']['fontsize'])
+
+            min_y = 0
+            max_y = 0
+
+            ax_tm[1].plot(t, [x[0] for x in torque],
+                            linewidth=self._plot_configs['thruster_output']['linewidth'],
+                            label=r'$K$')
+            min_y = min(min_y, np.min([x[0] for x in torque]))
+            max_y = max(max_y, np.max([x[0] for x in torque]))
+            ax_tm[1].plot(t, [x[1] for x in torque],
+                            linewidth=self._plot_configs['thruster_output']['linewidth'],
+                            label=r'$M$')
+            min_y = min(min_y, np.min([x[1] for x in torque]))
+            max_y = max(max_y, np.max([x[1] for x in torque]))
+            ax_tm[1].plot(t, [x[2] for x in torque],
+                            linewidth=self._plot_configs['thruster_output']['linewidth'],
+                            label=r'$N$')     
+            min_y = min(min_y, np.min([x[2] for x in torque]))
+            max_y = max(max_y, np.max([x[2] for x in torque]))               
+            
+            ax_tm[1].set_xlabel(r'Time [s]',
+                                fontsize=self._plot_configs['thruster_output']['label_fontsize'])
+            ax_tm[1].set_ylabel(r'Torques [Nm]',
+                                fontsize=self._plot_configs['thruster_output']['label_fontsize'])
+            ax_tm[1].tick_params(axis='both',
+                                    labelsize=self._plot_configs['thruster_output']['tick_labelsize'])
+            ax_tm[1].grid(True)
+            ax_tm[1].set_xlim(np.min(t), np.max(t))            
+            ax_tm[1].set_ylim(min_y, max_y)
+
+            ax_tm[1].legend(fancybox=True, framealpha=1,
+                            loc=self._plot_configs['thruster_output']['legend']['loc'],
+                            fontsize=self._plot_configs['thruster_output']['legend']['fontsize'])
+
+            fig_tm.tight_layout()
+            output_path = (self._output_dir if output_dir is None else output_dir)
+            filename = os.path.join(output_path, 'thruster_manager_input.pdf')
+            fig_tm.savefig(filename)
+            plt.close(fig_tm)
+            del fig_tm
+        except Exception, e:
+            self._logger.error('Error plotting thruster manager input command wrench, message=' + str(e))
 
     def add_disturbance_activation_spans(self, ax, min_value, max_value):
         try:
@@ -872,7 +1043,7 @@ class Evaluation(object):
             output_path = (self._output_dir if output_dir is None else output_dir)
 
             fig = plt.figure(figsize=(self._plot_configs['error_dist']['figsize'][0],
-                                      self._plot_configs['error_dist']['figsize'][1]))
+                                      2 * self._plot_configs['error_dist']['figsize'][1]))
             ax = fig.add_subplot(211)
 
             error = KPI.get_error(self._error_set.get_data('position'))
@@ -882,7 +1053,7 @@ class Evaluation(object):
             t = self._error_set.get_time()
             ax.plot(t, error, color='#003300',
                     linewidth=self._plot_configs['error_dist']['linewidth'],
-                    label='Position error')
+                    label=r'Euc. position error')
 
             ax.grid(True)
             ax.legend(loc=self._plot_configs['error_dist']['legend']['loc'],
@@ -891,7 +1062,7 @@ class Evaluation(object):
                            labelsize=self._plot_configs['error_dist']['tick_labelsize'])
             ax.set_xlabel('Time [s]',
                           fontsize=self._plot_configs['error_dist']['label_fontsize'])
-            ax.set_ylabel('Position error [m]',
+            ax.set_ylabel('Euc. position error [m]',
                           fontsize=self._plot_configs['error_dist']['label_fontsize'])
             ax.set_xlim(np.min(t), np.max(t))
             ax.set_ylim(0, np.max(error) * 1.05)
@@ -923,6 +1094,7 @@ class Evaluation(object):
             plt.tight_layout()
             plt.savefig(os.path.join(output_path, 'error_pos_heading.pdf'))
             plt.close(fig)
+            del fig
         except Exception, e:
             self._logger.error('Error while plotting position and heading error plots, message=' + str(e))
 
@@ -932,10 +1104,14 @@ class Evaluation(object):
                 self._logger.error('Invalid output directory, dir=' + str(output_dir))
                 raise Exception('Invalid output directory')
         try:
+            ##################################################################################
+            # Plotting position and orientation errors
+            ##################################################################################
             output_path = (self._output_dir if output_dir is None else output_dir)
 
             t = self._error_set.get_time()
-            fig = plt.figure(figsize=(12, 8))
+            fig = plt.figure(figsize=(self._plot_configs['errors']['figsize'][0],
+                                      2 * self._plot_configs['errors']['figsize'][1]))
             ax = fig.add_subplot(211)
             ax.set_title('Position error', fontsize=20)
             ax.plot(t, self._error_set.get_data('x'), 'r', label=r'$X$')
@@ -963,10 +1139,16 @@ class Evaluation(object):
             plt.tight_layout()
             plt.savefig(os.path.join(output_path, 'errors_pose.pdf'))
             plt.close(fig)
+            del fig
+        except Exception, e:
+            self._logger.error('Error while plotting pose errors, message=' + str(e))
 
+        try:
             ##################################################################################
-
-            fig = plt.figure(figsize=(12, 8))
+            # Plotting velocity errors
+            ##################################################################################            
+            fig = plt.figure(figsize=(self._plot_configs['errors']['figsize'][0],
+                                      2 * self._plot_configs['errors']['figsize'][1]))
             ax = fig.add_subplot(211)
             ax.set_title('Linear velocity error', fontsize=20)
             ax.plot(t, [e[0] for e in self._error_set.get_data('linear_velocity')], 'r', label=r'$\dot{X}$')
@@ -994,18 +1176,25 @@ class Evaluation(object):
             plt.tight_layout()
             plt.savefig(os.path.join(output_path, 'errors_vel.pdf'))
             plt.close(fig)
+            del fig
+        except Exception, e:
+            self._logger.error('Error while plotting velocity errors, message=' + str(e))
 
+        try:    
+            ##################################################################################
+            # Plotting quaternion vector errors
             ##################################################################################
 
             if self._bag.errors is not None:
                 t = self._bag.errors.time
-                fig = plt.figure(figsize=(12, 8))
+                fig = plt.figure(figsize=(self._plot_configs['errors']['figsize'][0],
+                                          self._plot_configs['errors']['figsize'][1]))
                 ax = fig.add_subplot(111)
                 ax.set_title('Quaternion orientation error', fontsize=20)
                 ax.plot(t, [e.rotq[0] for e in self._bag.errors.points], 'r', label=r'$\epsilon_x$')
                 ax.plot(t, [e.rotq[1] for e in self._bag.errors.points], 'g', label=r'$\epsilon_y$')
                 ax.plot(t, [e.rotq[2] for e in self._bag.errors.points], 'b', label=r'$\epsilon_z$')
-                ax.legend(fancybox=True, framealpha=0.9, loc='upper right', fontsize=18)
+                ax.legend(fancybox=True, framealpha=1, loc='upper right', fontsize=18)
                 ax.grid(True)
                 ax.tick_params(axis='both', labelsize=16)
                 ax.set_xlabel('Time [s]', fontsize=18)
@@ -1015,8 +1204,9 @@ class Evaluation(object):
                 plt.tight_layout()
                 plt.savefig(os.path.join(output_path, 'errors_quat.pdf'))
                 plt.close(fig)
+                del fig
         except Exception, e:
-            self._logger.error('Error while plotting pose and velocity errors, message=' + str(e))
+            self._logger.error('Error while plotting quaternion vector error, message=' + str(e))
 
     def plot_current(self, output_dir=None):
         if output_dir is not None:
@@ -1067,6 +1257,7 @@ class Evaluation(object):
             plt.tight_layout()
             plt.savefig(os.path.join(output_path, 'current_velocity.pdf'))
             plt.close(fig)
+            del fig
         except Exception, e:
             self._logger.error('Error while plotting disturbance wrenches, message=' + str(e))
 
