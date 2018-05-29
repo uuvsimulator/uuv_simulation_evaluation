@@ -44,9 +44,18 @@ class SimulationRunner(object):
     """
 
     def __init__(self, params, task_filename, results_folder='./results', record_all_results=False,
-                 add_folder_timestamp=True):
+                 add_folder_timestamp=True, log_filename=None, log_dir='logs'):
         # Setting up the logging
-        self._logger = logging.getLogger('run_simulation_wrapper')
+        self._task_name = task_filename.split('/')[-1]
+        self._task_name = self._task_name.split('.')[0]
+
+        self._record_all_results = record_all_results
+        
+        self._log_dir = log_dir
+        if not os.path.isdir(log_dir):
+            os.makedirs(log_dir)
+
+        self._logger = logging.getLogger('run_simulation_wrapper_%s' % self._task_name)
         if len(self._logger.handlers) == 0:
             self._out_hdlr = logging.StreamHandler(sys.stdout)
             self._out_hdlr.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
@@ -54,10 +63,26 @@ class SimulationRunner(object):
             self._logger.addHandler(self._out_hdlr)
             self._logger.setLevel(logging.INFO)
 
+            if log_filename is None:
+                if not os.path.isdir('logs'):
+                    os.makedirs('logs')
+                log_filename = os.path.join('logs', 'simulation_task_%s.log' % self._task_name)
+
+            self._file_hdlr = logging.FileHandler(log_filename)
+            self._file_hdlr.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
+            self._file_hdlr.setLevel(logging.INFO)        
+
+            self._logger.addHandler(self._file_hdlr)
+            self._logger.setLevel(logging.INFO)
+
+        self._logger.info('Record all results=' + str(record_all_results))
+
         assert type(params) is dict, 'Parameter structure must be a dict'
         self._params = params
 
         self._sim_counter = 0
+
+        random.seed()
 
         assert os.path.isfile(task_filename), 'Invalid task file'
         self._task_filename = task_filename
@@ -76,10 +101,7 @@ class SimulationRunner(object):
         self._results_folder = os.path.abspath(self._results_folder)
 
         self._logger.info('Results folder <%s>' % self._results_folder)
-
-        self._record_all_results = record_all_results
-
-        self._logger.info('Record all results=' + str(record_all_results))
+        
         # Filename for the ROS bag
         self._recording_filename = None
 
@@ -94,6 +116,7 @@ class SimulationRunner(object):
 
         # Default timeout for the process
         self._timeout = 1e5
+        self._simulation_timeout = None
         # POpen object to be instantiated
         self._process = None
 
@@ -113,6 +136,10 @@ class SimulationRunner(object):
     @property
     def process_timeout_triggered(self):
         return self._process_timeout_triggered
+
+    @property
+    def timeout(self):
+        return self._simulation_timeout
 
     def _port_open(self, port):
         return_code = 1
@@ -187,7 +214,9 @@ class SimulationRunner(object):
         if self._add_folder_timestamp:
             self._sim_results_dir = os.path.join(
                 self._results_folder,
-                strftime("%Y-%m-%d %H:%M:%S", gmtime()) + '_' + str(random.randrange(0, 1000, 1))).replace(' ', '_')
+                self._task_name + '_' + \
+                strftime("%Y-%m-%d %H-%M-%S", gmtime()) + '_' + \
+                str(random.randrange(0, 1000, 1))).replace(' ', '_')
         else:
             self._sim_results_dir = self._results_folder
 
@@ -228,8 +257,9 @@ class SimulationRunner(object):
                         # Setting the process timeout
                         if task['execute']['params'][param] > 0 and timeout is None:
                             # Set the process timeout to 5 times the given simulation timeout
-                            self._timeout = 1.5 * int(task['execute']['params'][param])
-                            self._logger.info('Simulation timeout t=%.f s' % task['execute']['params'][param])
+                            self._simulation_timeout = task['execute']['params'][param]
+                            self._timeout = 5 * int(self._simulation_timeout)
+                            self._logger.info('Simulation timeout t=%.f s' % self._simulation_timeout)
                         else:
                             self._logger.error('Invalid timeout = %.f' % task['execute']['params'][param])
 
@@ -252,7 +282,10 @@ class SimulationRunner(object):
 
                 # Create log file
                 timestamp = datetime.datetime.now().isoformat()
-                logfile_name = os.path.join(self._sim_results_dir, "process_log-%s.log" % timestamp)
+                log_dir = os.path.join(self._log_dir, self._task_name)
+                if not os.path.isdir(log_dir):
+                    os.makedirs(log_dir)
+                logfile_name = os.path.join(log_dir, "%s_process_log_%s.log" % (timestamp, self._task_name))
                 logfile = open(logfile_name, 'a')
                 # Start process
                 self._process = psutil.Popen(cmd, shell=True, stdout=logfile, stderr=logfile, env=os.environ.copy())
