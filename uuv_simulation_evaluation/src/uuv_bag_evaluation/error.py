@@ -34,6 +34,11 @@ class TrajectoryError(object):
         self._errors['linear_velocity'] = p_des.v - p_act.v
         self._errors['angular_velocity'] = p_des.w - p_act.w
 
+        frame = trans.quaternion_matrix(p_des.q)[0:3, 0:3]
+        e_pos_inertial = p_des.pos - p_act.pos
+        e_pos_des = np.dot(frame.T, e_pos_inertial)        
+        self._errors['cross_track'] = e_pos_des[1]
+        
         # Error quaternion wrt body frame
         err_quat = trans.quaternion_multiply(trans.quaternion_conjugate(p_des.q),
                                              p_act.q)
@@ -75,11 +80,13 @@ class ErrorSet(object):
             'y',
             'z',
             'position',
+            'cross_track',
             'linear_velocity',
             'angular_velocity',            
             'roll',
             'pitch',
-            'yaw']
+            'yaw',
+            'quaternion']
 
     def __init__(self):
         self._bag = None
@@ -96,31 +103,34 @@ class ErrorSet(object):
     def compute_errors(self):
         self._bag = Recording.get_instance()
         assert self._bag is not None, 'Recording has not been created'
-        assert self._bag.is_init, 'Topics have not been sorted from the rosbag'
+        # assert self._bag.is_init, 'Topics have not been sorted from the rosbag'
 
-        if self._bag.errors is None:
-            t_start = self._bag.start_time
-            t_end = self._bag.end_time
+        if self._bag.parsers['error'].error is None:
+            t_start = self._bag.parsers['trajectory'].start_time
+            t_end = self._bag.parsers['trajectory'].end_time
 
             self._errors = list()
 
-            for p_act in self._bag.actual.points:
+            for p_act in self._bag.parsers['trajectory'].odometry.points:
                 if t_start <= p_act.t and p_act.t <= t_end:
                     if len(self._errors):
                         if p_act.t <= self._errors[-1].t:
                             continue
-                    p_des = self._bag.desired.interpolate(p_act.t)
+                    p_des = self._bag.parsers['trajectory'].reference.interpolate(p_act.t)
                     self._errors.append(TrajectoryError(p_des, p_act))
 
     @property
     def errors(self):
         return self._errors
 
-    def get_time(self):
-        if self._bag.errors is None:
-            return np.array([e.t for e in self._errors])
+    def get_time(self, tag='error'):
+        if tag == 'error':
+            if self._bag.parsers['error'].error is None:
+                return np.array([e.t for e in self._errors])
+            else:
+                return np.array([e.t for e in self._bag.parsers['error'].error.points])
         else:
-            return np.array([e.t for e in self._bag.errors.points])
+            return np.array([e.t for e in self._bag.parsers['trajectory'].odometry.points])
     def get_tags(self):
         return self.TAGS
 
@@ -128,29 +138,40 @@ class ErrorSet(object):
         if tag not in self.TAGS:
             return None
 
-        if self._bag.errors is None and len(self._errors):
+        if self._bag.parsers['error'].error is None and len(self._errors):
             assert time_offset >= 0.0 and time_offset <= self._errors[-1].t, 'Time offset is off limits'
             return [e.get_data(tag) for e in self._errors if e.t >= time_offset]
-        elif self._bag.errors is not None:
-            assert time_offset >= 0.0 and time_offset <= self._bag.errors.time[-1], 'Time offset is off limits'
+        elif self._bag.parsers['error'].error is not None:
+            assert time_offset >= 0.0 and time_offset <= self._bag.parsers['error'].error.time[-1], 'Time offset is off limits'
 
             vec = None
             if tag == 'x':
-                vec = [e.pos[0] for e in self._bag.errors.points if e.t >= time_offset]
+                vec = [e.pos[0] for e in self._bag.parsers['error'].error.points if e.t >= time_offset]
             elif tag == 'y':
-                vec = [e.pos[1] for e in self._bag.errors.points if e.t >= time_offset]
+                vec = [e.pos[1] for e in self._bag.parsers['error'].error.points if e.t >= time_offset]
             elif tag == 'z':
-                vec = [e.pos[2] for e in self._bag.errors.points if e.t >= time_offset]
+                vec = [e.pos[2] for e in self._bag.parsers['error'].error.points if e.t >= time_offset]
             elif tag == 'position':
-                vec = [e.pos for e in self._bag.errors.points if e.t >= time_offset]
+                vec = [e.pos for e in self._bag.parsers['error'].error.points if e.t >= time_offset]
             elif tag == 'linear_velocity':
-                vec = [e.vel[0:3] for e in self._bag.errors.points if e.t >= time_offset]
+                vec = [e.vel[0:3] for e in self._bag.parsers['error'].error.points if e.t >= time_offset]
             elif tag == 'angular_velocity':
-                vec = [e.vel[3:6] for e in self._bag.errors.points if e.t >= time_offset]
+                vec = [e.vel[3:6] for e in self._bag.parsers['error'].error.points if e.t >= time_offset]
             elif tag == 'roll':
-                vec = [e.rot[0] for e in self._bag.errors.points if e.t >= time_offset]
+                vec = [e.rot[0] for e in self._bag.parsers['error'].error.points if e.t >= time_offset]
             elif tag == 'pitch':
-                vec = [e.rot[1] for e in self._bag.errors.points if e.t >= time_offset]
+                vec = [e.rot[1] for e in self._bag.parsers['error'].error.points if e.t >= time_offset]
             elif tag == 'yaw':
-                vec = [e.rot[2] for e in self._bag.errors.points if e.t >= time_offset]
+                vec = [e.rot[2] for e in self._bag.parsers['error'].error.points if e.t >= time_offset]            
+            elif tag == 'cross_track':
+                vec = list()                
+                for p_act in self._bag.parsers['trajectory'].odometry.points:
+                    p_des = self._bag.parsers['trajectory'].reference.interpolate(p_act.t)
+                    if p_des.t >= time_offset:
+                        frame = trans.quaternion_matrix(p_des.q)[0:3, 0:3]
+                        e_pos_inertial = p_des.pos - p_act.pos
+                        e_pos_des = np.dot(frame.T, e_pos_inertial)
+                        vec.append(e_pos_des[1])
+            elif tag == 'quaternion':
+                vec = [e.rotq for e in self._bag.parsers['error'].error.points if e.t >= time_offset]
             return vec
