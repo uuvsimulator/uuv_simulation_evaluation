@@ -167,19 +167,19 @@ if __name__ == '__main__':
                 sim_eval.save_evaluation()
 
                 if desired is None:
-                    desired = sim_eval.get_trajectory_coord('desired')
+                    desired = sim_eval.recording.parsers['trajectory'].reference.points
 
-                traj.append(sim_eval.get_trajectory_coord('actual'))
+                traj.append(sim_eval.recording.parsers['trajectory'].odometry.points)
 
                 error_t.append(sim_eval._error_set.get_time())
                 error_vec.append(KPI.get_error(sim_eval._error_set.get_data('position')))
                 error_yaw_vec.append(sim_eval._error_set.get_data('yaw'))
 
                 if t_cur is None:
-                    t_cur, vec_cur = sim_eval._bag.get_current_vel()
+                    t_cur, vec_cur = sim_eval.recording.parsers['current_velocity'].current_velocity
 
                 if t_force is None:
-                    t_force, vec_force, vec_torque = sim_eval._bag.get_wrench_dist()
+                    t_force, vec_force, vec_torque = sim_eval.recording.parsers['wrench_perturbation'].disturbances
 
                 kpis = sim_eval.get_kpis()
 
@@ -229,20 +229,20 @@ if __name__ == '__main__':
                     sim_eval.save_evaluation()
 
                     if desired is None:
-                        desired = sim_eval.get_trajectory_coord('desired')
+                        desired = sim_eval.recording.parsers['trajectory'].reference.points
 
-                    traj.append(sim_eval.get_trajectory_coord('actual'))
+                    traj.append(sim_eval.recording.parsers['trajectory'].odometry.points)
 
                     error_t.append(sim_eval._error_set.get_time())
                     error_vec.append(KPI.get_error(sim_eval._error_set.get_data('position')))
                     error_yaw_vec.append(sim_eval._error_set.get_data('yaw'))
 
                     if t_cur is None:
-                        t_cur, vec_cur = sim_eval._bag.get_current_vel()
+                        t_cur, vec_cur = sim_eval.recording.parsers['current_velocity'].current_velocity
 
                     if t_force is None:
-                        t_force, vec_force, vec_torque = sim_eval._bag.get_wrench_dist()
-
+                        t_force, vec_force, vec_torque = sim_eval.recording.parsers['wrench_perturbation'].disturbances
+                    
                     kpis = sim_eval.get_kpis()
 
                     kpi_results.append(kpis)
@@ -266,168 +266,177 @@ if __name__ == '__main__':
                     del sim_eval
                     idx += 1
 
-    try:
-        ########################################################################
-        # Plot cost function evolution
-        ########################################################################
+    # try:
+    ########################################################################
+    # Plot cost function evolution
+    ########################################################################
 
-        cost[0] = cost[1]
-        fig = plt.figure(figsize=(6, 4))
-        ax = fig.add_subplot(111)
+    cost[0] = cost[1]
+    fig = plt.figure(figsize=(6, 4))
+    ax = fig.add_subplot(111)
 
-        ax.plot(evals, cost, '--b', linewidth=3, zorder=1)
-        ax.scatter(evals, cost, s=60, color='red', zorder=2)
+    ax.plot(evals, cost, '--b', linewidth=3, zorder=1)
+    ax.scatter(evals, cost, s=60, color='red', zorder=2)
 
-        ax.set_xlabel('Number of evaluations', fontsize=20)
-        ax.set_ylabel('Cost function', fontsize=20)
-        ax.tick_params(axis='both', labelsize=18)
-        ax.grid(True)
-        ax.set_xlim(np.min(evals), np.max(evals))
-        plt.tight_layout()
+    ax.set_xlabel('Number of evaluations', fontsize=20)
+    ax.set_ylabel('Cost function', fontsize=20)
+    ax.tick_params(axis='both', labelsize=18)
+    ax.grid(True)
+    ax.set_xlim(np.min(evals), np.max(evals))
+    plt.tight_layout()
 
-        filename = os.path.join(args.output_dir, 'smac_evolution.pdf')
-        plt.savefig(filename)
-        plt.clf()
+    filename = os.path.join(args.output_dir, 'smac_evolution.pdf')
+    plt.savefig(filename)
+    plt.clf()
 
-        ########################################################################
-        # Compare first and last trajectories
-        ########################################################################
+    ########################################################################
+    # Compare first and last trajectories
+    ########################################################################
 
-        fig = plt.figure(figsize=(12, 8))
-        ax = fig.gca(projection='3d')
+    fig = plt.figure(figsize=(12, 8))
+    ax = fig.gca(projection='3d')
 
-        ax.plot(desired[0], desired[1], desired[2], 'b--', label='Desired path', linewidth=3)
-        ax.plot(traj[1][0], traj[1][1], traj[1][2], 'g', label='Initial set', linewidth=3)
-        ax.plot(traj[-1][0], traj[-1][1], traj[-1][2], 'r', label='Optimal set', linewidth=3)
+    ax.plot(
+        [d.x for d in desired], 
+        [d.y for d in desired], 
+        [d.z for d in desired], 'b--', label='Desired path', linewidth=3)
+    ax.plot(
+        [d.x for d in traj[1]], 
+        [d.y for d in traj[1]], 
+        [d.z for d in traj[1]], 'g', label='Initial set', linewidth=3)
+    ax.plot(
+        [d.x for d in traj[-1]], 
+        [d.y for d in traj[-1]], 
+        [d.z for d in traj[-1]], 'r', label='Optimal set', linewidth=3)
 
-        ax.set_xlabel('X [m]', fontsize=20)
-        ax.set_ylabel('Y [m]', fontsize=20)
-        ax.set_zlabel('Z [m]', fontsize=20)
+    ax.set_xlabel('X [m]', fontsize=20)
+    ax.set_ylabel('Y [m]', fontsize=20)
+    ax.set_zlabel('Z [m]', fontsize=20)
 
-        ax.tick_params(axis='x', labelsize=18)
-        ax.tick_params(axis='y', labelsize=18)
-        ax.tick_params(axis='z', labelsize=18)
+    ax.tick_params(axis='x', labelsize=18)
+    ax.tick_params(axis='y', labelsize=18)
+    ax.tick_params(axis='z', labelsize=18)
 
-        ax.xaxis.labelpad = 10
-        ax.yaxis.labelpad = 10
-        ax.zaxis.labelpad = 10
+    ax.xaxis.labelpad = 10
+    ax.yaxis.labelpad = 10
+    ax.zaxis.labelpad = 10
 
-        ax.legend(loc='upper left', fancybox=True, framealpha=0.8, fontsize=18)
-        ax.grid(True)
-        plt.tight_layout()
+    ax.legend(loc='upper left', fancybox=True, framealpha=0.8, fontsize=18)
+    ax.grid(True)
+    plt.tight_layout()
 
-        filename = os.path.join(args.output_dir, 'trajectories_comparison.pdf')
-        plt.savefig(filename)
-        plt.clf()
+    filename = os.path.join(args.output_dir, 'trajectories_comparison.pdf')
+    plt.savefig(filename)
+    plt.clf()
 
-        ########################################################################
-        # Compare first and last KPIs
-        ########################################################################
+    ########################################################################
+    # Compare first and last KPIs
+    ########################################################################
 
-        fig = plt.figure(figsize=(8, 12))
+    fig = plt.figure(figsize=(8, 12))
 
-        kpi_labels = dict(rmse_position='RMS Error - Position',
-                          rmse_yaw='RMS Error - Yaw',
-                          rmse_linear_velocity='RMS Error - Linear velocity',
-                          rmse_angular_velocity='RMS Error - Angular velocity',
-                          mean_abs_thrust='Mean abs. thrust')
+    kpi_labels = dict(rmse_position='RMS Error - Position',
+                        rmse_yaw='RMS Error - Yaw',
+                        rmse_linear_velocity='RMS Error - Linear velocity',
+                        rmse_angular_velocity='RMS Error - Angular velocity',
+                        mean_abs_thrust='Mean abs. thrust')
 
-        i = 1
-        for tag in kpi_labels:
-            ax = fig.add_subplot(len(kpi_labels.keys()), 1, i)
-            ax.plot(np.arange(idx), [kpi_results[k][tag] for k in np.arange(idx)], '--b', linewidth=2, zorder=1)
-            ax.scatter(np.arange(idx), [kpi_results[k][tag] for k in np.arange(idx)], s=30, color='red', zorder=2)
-            i += 1
+    i = 1
+    for tag in kpi_labels:
+        ax = fig.add_subplot(len(kpi_labels.keys()), 1, i)
+        ax.plot(np.arange(idx), [kpi_results[k][tag] for k in np.arange(idx)], '--b', linewidth=2, zorder=1)
+        ax.scatter(np.arange(idx), [kpi_results[k][tag] for k in np.arange(idx)], s=30, color='red', zorder=2)
+        i += 1
 
-            ax.set_xlabel('Set index', fontsize=20)
-            ax.set_ylabel('Metric value', fontsize=20)
-            ax.set_title(kpi_labels[tag], fontsize=22)
-            ax.tick_params(axis='both', labelsize=15)
-            ax.grid(True)
-            ax.set_xlim(0, idx - 1)
-
-        plt.tight_layout()
-        filename = os.path.join(args.output_dir, 'kpis_comparison.pdf')
-        plt.savefig(filename)
-        plt.clf()
-
-        ########################################################################
-        # Compare position error
-        ########################################################################
-
-        fig = plt.figure(figsize=(10, 6))
-
-        # Plot position error
-        ax = fig.add_subplot(211)
-
-        ax.plot(error_t[0], error_vec[0], color='#E2742B', linewidth=3, label='Initial set')
-        ax.plot(error_t[-1], error_vec[-1], color='#6600CC', linewidth=3, label='Optimal set')
-
-        error_max = np.max([np.max(error_vec[0]), np.max(error_vec[-1])])
-        if len(t_cur) > 0:
-            v = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_cur])
-            if v.max() > 0:
-                v[v > 0] = 1.05
-                ax.fill_between(t_cur, 0, v * error_max, facecolor='blue', alpha=0.2, label='Current disturbance activated')
-
-        if len(t_force) > 0:
-            f = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_force])
-            tau = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_torque])
-
-            if f.max() > 0:
-                f[f > 0] = 1.05
-                ax.fill_between(t_force, 0, f * error_max, facecolor='red', alpha=0.2, label='Force disturbance activated')
-
-            if tau.max() > 0:
-                tau[tau > 0] = 1.05
-                ax.fill_between(t_force, 0, tau * error_max, facecolor='green', alpha=0.2, label='Torque disturbance activated')
-
-        ax.set_xlabel('Time [s]', fontsize=20)
-        ax.set_ylabel('Position error [m]', fontsize=20)
-        ax.legend(fancybox=True, framealpha=0.9, loc='upper left', fontsize=16)
-        ax.grid(True)
+        ax.set_xlabel('Set index', fontsize=20)
+        ax.set_ylabel('Metric value', fontsize=20)
+        ax.set_title(kpi_labels[tag], fontsize=22)
         ax.tick_params(axis='both', labelsize=15)
-        ax.set_xlim(np.min(error_t[0]), np.max(error_t[0]))
-        ax.set_ylim(0, error_max * 1.05)
-
-        # Plot heading error
-        ax = fig.add_subplot(212)
-
-        ax.plot(error_t[0], error_yaw_vec[0], color='#E2742B', linewidth=3, label='Initial set')
-        ax.plot(error_t[-1], error_yaw_vec[-1], color='#6600CC', linewidth=3, label='Optimal set')
-
-        error_max = np.max([np.max(error_yaw_vec[0]), np.max(error_yaw_vec[-1])])
-        error_min = np.min([np.min(error_yaw_vec[0]), np.min(error_yaw_vec[-1])])
-        if len(t_cur) > 0:
-            v = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_cur])
-            if v.max() > 0:
-                v[v > 0] = 1.05
-                ax.fill_between(t_cur, v * error_min, v * error_max, facecolor='blue', alpha=0.2, label='Current disturbance activated')
-
-        if len(t_force) > 0:
-            f = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_force])
-            tau = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_torque])
-
-            if f.max() > 0:
-                f[f > 0] = 1.05
-                ax.fill_between(t_force, f * error_min, f * error_max, facecolor='red', alpha=0.2, label='Force disturbance activated')
-
-            if tau.max() > 0:
-                tau[tau > 0] = 1.05
-                ax.fill_between(t_force, tau * error_min, tau * error_max, facecolor='green', alpha=0.2, label='Torque disturbance activated')
-
-        ax.set_xlabel('Time [s]', fontsize=20)
-        ax.set_ylabel('Heading error [rad]', fontsize=20)
-        ax.legend(fancybox=True, framealpha=0.9, loc='upper left', fontsize=16)
         ax.grid(True)
-        ax.tick_params(axis='both', labelsize=15)
-        ax.set_xlim(np.min(error_t[0]), np.max(error_t[0]))
-        ax.set_ylim(error_min * 1.05, error_max * 1.05)
+        ax.set_xlim(0, idx - 1)
 
-        plt.tight_layout()
+    plt.tight_layout()
+    filename = os.path.join(args.output_dir, 'kpis_comparison.pdf')
+    plt.savefig(filename)
+    plt.clf()
 
-        filename = os.path.join(args.output_dir, 'error_comparison.pdf')
-        plt.savefig(filename)
-        plt.clf()
-    except Exception, e:
-        print 'Error while plotting comparative results, message=', str(e)
+    ########################################################################
+    # Compare position error
+    ########################################################################
+
+    fig = plt.figure(figsize=(10, 6))
+
+    # Plot position error
+    ax = fig.add_subplot(211)
+
+    ax.plot(error_t[0], error_vec[0], color='#E2742B', linewidth=3, label='Initial set')
+    ax.plot(error_t[-1], error_vec[-1], color='#6600CC', linewidth=3, label='Optimal set')
+
+    error_max = np.max([np.max(error_vec[0]), np.max(error_vec[-1])])
+    if vec_cur is not None:
+        v = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_cur])
+        if v.max() > 0:
+            v[v > 0] = 1.05
+            ax.fill_between(t_cur, 0, v * error_max, facecolor='blue', alpha=0.2, label='Current disturbance activated')
+
+    if vec_force is not None:
+        f = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_force])
+        tau = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_torque])
+
+        if f.max() > 0:
+            f[f > 0] = 1.05
+            ax.fill_between(t_force, 0, f * error_max, facecolor='red', alpha=0.2, label='Force disturbance activated')
+
+        if tau.max() > 0:
+            tau[tau > 0] = 1.05
+            ax.fill_between(t_force, 0, tau * error_max, facecolor='green', alpha=0.2, label='Torque disturbance activated')
+
+    ax.set_xlabel('Time [s]', fontsize=20)
+    ax.set_ylabel('Position error [m]', fontsize=20)
+    ax.legend(fancybox=True, framealpha=0.9, loc='upper left', fontsize=16)
+    ax.grid(True)
+    ax.tick_params(axis='both', labelsize=15)
+    ax.set_xlim(np.min(error_t[0]), np.max(error_t[0]))
+    ax.set_ylim(0, error_max * 1.05)
+
+    # Plot heading error
+    ax = fig.add_subplot(212)
+
+    ax.plot(error_t[0], error_yaw_vec[0], color='#E2742B', linewidth=3, label='Initial set')
+    ax.plot(error_t[-1], error_yaw_vec[-1], color='#6600CC', linewidth=3, label='Optimal set')
+
+    error_max = np.max([np.max(error_yaw_vec[0]), np.max(error_yaw_vec[-1])])
+    error_min = np.min([np.min(error_yaw_vec[0]), np.min(error_yaw_vec[-1])])
+    if vec_cur is not None:
+        v = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_cur])
+        if v.max() > 0:
+            v[v > 0] = 1.05
+            ax.fill_between(t_cur, v * error_min, v * error_max, facecolor='blue', alpha=0.2, label='Current disturbance activated')
+
+    if vec_force is not None:
+        f = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_force])
+        tau = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_torque])
+
+        if f.max() > 0:
+            f[f > 0] = 1.05
+            ax.fill_between(t_force, f * error_min, f * error_max, facecolor='red', alpha=0.2, label='Force disturbance activated')
+
+        if tau.max() > 0:
+            tau[tau > 0] = 1.05
+            ax.fill_between(t_force, tau * error_min, tau * error_max, facecolor='green', alpha=0.2, label='Torque disturbance activated')
+
+    ax.set_xlabel('Time [s]', fontsize=20)
+    ax.set_ylabel('Heading error [rad]', fontsize=20)
+    ax.legend(fancybox=True, framealpha=0.9, loc='upper left', fontsize=16)
+    ax.grid(True)
+    ax.tick_params(axis='both', labelsize=15)
+    ax.set_xlim(np.min(error_t[0]), np.max(error_t[0]))
+    ax.set_ylim(error_min * 1.05, error_max * 1.05)
+
+    plt.tight_layout()
+
+    filename = os.path.join(args.output_dir, 'error_comparison.pdf')
+    plt.savefig(filename)
+    plt.clf()
+    # except Exception, e:
+    #     print 'Error while plotting comparative results, message=', str(e)
