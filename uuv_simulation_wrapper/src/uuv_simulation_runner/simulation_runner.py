@@ -49,7 +49,7 @@ class SimulationRunner(object):
         self._task_name = task_filename.split('/')[-1]
         self._task_name = self._task_name.split('.')[0]
 
-        self._record_all_results = record_all_results
+        self.record_all_results = record_all_results
         
         self._log_dir = log_dir
         if not os.path.isdir(log_dir):
@@ -122,7 +122,12 @@ class SimulationRunner(object):
 
 
     def __del__(self):
-        if not self._record_all_results:
+        self._logger.info('Destroying simulation runner')
+        if self._recording_filename is None:
+            self._logger.info('Recording filename was not initialized')
+        else:
+            self._logger.info('Recording filename=' + str(self._recording_filename))
+        if not self.record_all_results:
             self.remove_recording_dir()
 
     @property
@@ -193,10 +198,13 @@ class SimulationRunner(object):
             self._logger.info('PROCESS TIMEOUT - finishing process...')
 
     def remove_recording_dir(self):
-        if self._recording_filename is not None and not self._record_all_results:
+        if self._recording_filename is not None and not self.record_all_results:
             rec_path = os.path.dirname(self._recording_filename)
-            self._logger.info('Removing old directory, path=' + rec_path)
-            shutil.rmtree(rec_path)
+            if os.path.isdir(rec_path):
+                self._logger.info('Removing recording directory, path=' + rec_path)
+                shutil.rmtree(rec_path)
+            else:
+                self._logger.info('Recording directory has already been deleted, path=' + rec_path)
 
     def run(self, params=dict(), timeout=None):
         if len(params.keys()):

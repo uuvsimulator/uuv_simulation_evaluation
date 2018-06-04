@@ -209,7 +209,7 @@ def generate_curves_sets(initial_pos, initial_yaw, config):
     center = initial_pos - np.array([0, config['curves']['radius'], 0])
     wp_set = WaypointSet()
 
-    for a in np.arange(0.9, 0.0, -0.1) * np.pi / 2:    
+    for a in np.arange(0.9, 0.0, -0.1) * 2 * np.pi:    
         waypoint_target = Waypoint(
             config['curves']['radius'] * np.cos(a) + center[0], 
             config['curves']['radius'] * np.sin(a) + center[1], 
@@ -223,7 +223,7 @@ def generate_curves_sets(initial_pos, initial_yaw, config):
     center = initial_pos + np.array([0, config['curves']['radius'], 0])
     wp_set = WaypointSet()
 
-    for a in np.arange(0.1, 1.1, 0.1) * np.pi / 2 - np.pi / 2:    
+    for a in np.arange(0.1, 1.1, 0.1) * 2 * np.pi - np.pi / 2:    
         waypoint_target = Waypoint(
             config['curves']['radius'] * np.cos(a) + center[0], 
             config['curves']['radius'] * np.sin(a) + center[1], 
@@ -233,7 +233,7 @@ def generate_curves_sets(initial_pos, initial_yaw, config):
     add_waypoints_to_plot(ax, wp_set)
     sets += [wp_set]
 
-    # Creating curve up and forwards
+    # Creating motion to climb and move forwards
     center = initial_pos + np.array([config['curves']['radius'], 0, 0])
     wp_set = WaypointSet()
 
@@ -248,7 +248,7 @@ def generate_curves_sets(initial_pos, initial_yaw, config):
     add_waypoints_to_plot(ax, wp_set)
     sets += [wp_set]
 
-    # Creating curve up and upwards
+    # Creating motion to climb and move upwards
     center = initial_pos + np.array([0, 0, config['curves']['radius']])
     wp_set = WaypointSet()
 
@@ -263,7 +263,7 @@ def generate_curves_sets(initial_pos, initial_yaw, config):
     add_waypoints_to_plot(ax, wp_set)
     sets += [wp_set]
 
-    # Creating curve down and forwards
+    # Creating motion to dive and move forwards    
     center = initial_pos - np.array([0, 0, config['curves']['radius']])
     wp_set = WaypointSet()
 
@@ -278,7 +278,7 @@ def generate_curves_sets(initial_pos, initial_yaw, config):
     add_waypoints_to_plot(ax, wp_set)
     sets += [wp_set]
 
-    # Creating curve down and downwards
+    # Creating motion to dive and move downwards
     center = initial_pos + np.array([config['curves']['radius'], 0, 0])
     wp_set = WaypointSet()
 

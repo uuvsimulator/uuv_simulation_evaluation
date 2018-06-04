@@ -18,6 +18,7 @@ import yaml
 import logging
 import sys
 import datetime
+from copy import deepcopy
 from time import sleep
 import random
 from .utils import *
@@ -31,6 +32,8 @@ N_SUCCESS = Value('i', 0)
 N_CRASHES = Value('i', 0)
 
 PROCESS_LOCK = Lock()
+
+THREAD_POOL = None
 
 def add_to_crash_log(data):
     assert isinstance(data, dict)
@@ -70,7 +73,9 @@ def run_simulation(task):
     opt_config = OptConfiguration.get_instance()
 
     SIMULATION_LOGGER.info('Starting simulation for task <%s>...' % task)
-    SIMULATION_LOGGER.info('\tParameters=' + str(opt_config.params))
+    SIMULATION_LOGGER.info('\tParameters=')
+    for tag in sorted(opt_config.params.keys()):
+        SIMULATION_LOGGER.info('\t - %s=%.3f' % (tag, opt_config.params[tag]))
     SIMULATION_LOGGER.info('\tPartial results root directory=' + opt_config.results_dir)
     SIMULATION_LOGGER.info('\tRecord all partial results? ' + str(opt_config.record_all))
 
@@ -118,7 +123,9 @@ def run_simulation(task):
         output = dict(task=str(task), status=status, cost=partial_cost, sim_time=None, message=str(e))
 
         if runner is not None:
-            del runner            
+            if not runner.record_all_results:
+                runner.remove_recording_dir()
+            del runner          
         return output
     else:
         SIMULATION_LOGGER.info('Simulation finished, task=%s' % task)
@@ -165,6 +172,8 @@ def run_simulation(task):
             status=status,
             cost=float(partial_cost),
             sim_time=sim_time, 
+            results_dir=runner.current_sim_results_dir,
+            recording_filename=runner.recording_filename,
             task=task)
 
         add_to_run_log(output)
@@ -194,22 +203,27 @@ def run_simulation(task):
         PROCESS_LOCK.release()
 
         if runner is not None:
+            if not runner.record_all_results:
+                runner.remove_recording_dir()
             del runner
         if sim_eval is not None:
             del sim_eval
 
         return output        
-    else:
-        if runner is not None:
-            del runner
-        if sim_eval is not None:
-            del sim_eval
-            
-        PROCESS_LOCK.release()        
-        sleep(random.random())
-        return output        
+    
+    if runner is not None:
+        if not runner.record_all_results:
+            runner.remove_recording_dir()
+        del runner
+    if sim_eval is not None:
+        del sim_eval
+        
+    PROCESS_LOCK.release()        
+    sleep(random.random() * 2)
+    return output        
 
-def start_simulation_pool(max_num_processes=None, tasks=None, log_filename=None):
+def start_simulation_pool(max_num_processes=None, tasks=None, log_filename=None, output_dir=None):
+    global THREAD_POOL
     init_logger(log_filename)
 
     opt_config = OptConfiguration.get_instance()
@@ -221,22 +235,33 @@ def start_simulation_pool(max_num_processes=None, tasks=None, log_filename=None)
 
     SIMULATION_LOGGER.info('Starting simulation pool, num_processes=%d' % num_processes)
 
+    if output_dir is not None:
+        original_results_path = deepcopy(opt_config.results_dir)
+        opt_config.results_dir = output_dir
+    else:
+        original_results_path = None
+
     try:
-        thread_pool = Pool(processes=num_processes)
-    except KeyboardInterrupt:
-        SIMULATION_LOGGER.info('Key interrupt! Killing all processes...')
-        thread_pool.terminate()
+        THREAD_POOL = Pool(processes=num_processes)
+
+        task_list = tasks
+        if tasks is None:
+            task_list = opt_config.tasks
+        output = THREAD_POOL.map(run_simulation, task_list)
+    except Exception, e:
+        SIMULATION_LOGGER.info('Key interrupt! Killing all processes, message=' + str(e))
+        THREAD_POOL.terminate()
+        THREAD_POOL.join()
+        if THREAD_POOL is not None:
+            del THREAD_POOL
+        THREAD_POOL = None
         return None, None    
+    finally:   
+        THREAD_POOL.close()
+        THREAD_POOL.join()
 
-    task_list = tasks
-    if tasks is None:
-        task_list = opt_config.tasks
-    output = thread_pool.map(run_simulation, task_list)
-
-    thread_pool.close()
-    thread_pool.join()
-
-    del thread_pool
+    del THREAD_POOL
+    THREAD_POOL = None
 
     failed_tasks = list()
 
@@ -244,7 +269,31 @@ def start_simulation_pool(max_num_processes=None, tasks=None, log_filename=None)
         if item['status'] == SIM_CRASHED:
             failed_tasks.append(item['task'])
 
+    if original_results_path is not None:
+        opt_config.results_dir = original_results_path
+
     SIMULATION_LOGGER.info('Ending simulation pool, # failed tasks=%d' % len(failed_tasks))
 
     return output, failed_tasks
     
+def stop_simulation_pool():
+    global THREAD_POOL
+    THREAD_POOL.terminate()
+    THREAD_POOL.join()
+
+    if THREAD_POOL is not None:
+        del THREAD_POOL
+    THREAD_POOL = None
+
+def killall_ros_processes():    
+    process_names = [
+        'rosmaster',
+        'roslaunch',
+        'rosout',
+        'gzserver']
+
+    cmd = 'killall -9 '
+    for p in process_names:
+       cmd += '%s ' % p
+    SIMULATION_LOGGER.info('Killing remaining processes, cmd=%s' % cmd)
+    os.system(cmd)
