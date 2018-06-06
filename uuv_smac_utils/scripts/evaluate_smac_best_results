@@ -22,6 +22,7 @@ import os
 import sys
 import yaml
 import numpy as np
+from time import sleep
 from uuv_simulation_runner import SimulationRunner
 from uuv_bag_evaluation import Evaluation
 from uuv_bag_evaluation.metrics import KPI
@@ -58,7 +59,6 @@ def run_simulation(idx, smac_results, output_dir):
     output, failed_tasks = start_simulation_pool(1, output_dir=sub_result_folder)
 
     print output
-
     return output
 
 def plot_trajectories(results, output_dir):
@@ -70,17 +70,17 @@ def plot_trajectories(results, output_dir):
 
     fig = plt.figure(figsize=(12, 8))
     ax = fig.gca(projection='3d')
-    
+
     time_offset = max(0.0, opt_config.evaluation_time_offset)
 
-    for task in opt_config.tasks:    
+    for task in opt_config.tasks:
         task_name = task.split('/')[-1]
         task_name = task_name.split('.')[0]
 
-        trajplot_dir = os.path.join(output_dir, 'trajectories', task_name)    
+        trajplot_dir = os.path.join(output_dir, 'trajectories', task_name)
 
-        sim_eval = Evaluation(results[0]['recording_filename'], 
-                            results[0]['results_dir'], 
+        sim_eval = Evaluation(results[0]['recording_filename'],
+                            results[0]['results_dir'],
                             time_offset=time_offset)
 
         if desired is None:
@@ -89,29 +89,29 @@ def plot_trajectories(results, output_dir):
         traj = sim_eval.recording.parsers['trajectory'].odometry.points
 
         ax.plot(
-            [d.x for d in desired], 
-            [d.y for d in desired], 
+            [d.x for d in desired],
+            [d.y for d in desired],
             [d.z for d in desired], 'b--', label='Desired path', linewidth=3)
         ax.plot(
-            [d.x for d in traj], 
-            [d.y for d in traj], 
+            [d.x for d in traj],
+            [d.y for d in traj],
             [d.z for d in traj], 'g', label='Initial set', linewidth=3)
 
-        sim_eval = Evaluation(results[1]['recording_filename'], 
-                            results[1]['results_dir'], 
+        sim_eval = Evaluation(results[1]['recording_filename'],
+                            results[1]['results_dir'],
                             time_offset=time_offset)
-        
+
         traj = sim_eval.recording.parsers['trajectory'].odometry.points
 
         ax.plot(
-            [d.x for d in traj], 
-            [d.y for d in traj], 
+            [d.x for d in traj],
+            [d.y for d in traj],
             [d.z for d in traj], 'r', label='Optimal set', linewidth=3)
 
         ax.set_xlabel('X [m]', fontsize=20)
         ax.set_ylabel('Y [m]', fontsize=20)
         ax.set_zlabel('Z [m]', fontsize=20)
-        
+
         ax.tick_params(axis='x', labelsize=18)
         ax.tick_params(axis='y', labelsize=18)
         ax.tick_params(axis='z', labelsize=18)
@@ -131,10 +131,10 @@ def plot_trajectories(results, output_dir):
 def plot_cost(results_filename, output_dir):
     with open(results_filename, 'r') as s_file:
         for line in s_file:
-            smac_result = json.loads(line)        
+            smac_result = json.loads(line)
             cost.append(smac_result['cost'])
             evals.append(smac_result['evaluations'])
-            
+
     ########################################################################
     # Plot cost function evolution
     ########################################################################
@@ -161,7 +161,8 @@ def plot_cost(results_filename, output_dir):
     del fig
 
 def plot_kpis():
-        # ########################################################################
+    pass
+    # ########################################################################
     # # Compare first and last KPIs
     # ########################################################################
 
@@ -244,7 +245,7 @@ if __name__ == '__main__':
     opt_config = OptConfiguration.get_instance(os.path.join(args.input_dir, 'opt_config.yml'))
     opt_config.record_all = True
     opt_config.store_kpis_only = False
-        
+
     time_offset = max(0.0, opt_config.evaluation_time_offset)
 
     cost = list()
@@ -273,7 +274,7 @@ if __name__ == '__main__':
             smac_results.append(line)
 
     ########################################################################
-    # Plot SMAC costs 
+    # Plot SMAC costs
     ########################################################################
     plot_cost(smac_file, args.output_dir)
 
@@ -283,10 +284,10 @@ if __name__ == '__main__':
     if args.simulate:
         # Simulate the scenario with the initial parameters
         result_folders[0] = run_simulation(0, smac_results, args.output_dir)
-                
+
         # Simulate the scenario with the optimal parameters
         result_folders[len(smac_results) - 1] = run_simulation(len(smac_results) - 1, smac_results, args.output_dir)
-        
+
         plot_trajectories(result_folders, args.output_dir)
 
         # with open(smac_file, 'r') as s_file:
@@ -318,16 +319,16 @@ if __name__ == '__main__':
                 # params = parse_input(parsed_params, opt_config['input_map'])
 
                 # task = os.path.join(args.input_dir, opt_config['task'])
-                
+
                 # failed_tasks = list()
                 # output, failed_tasks = start_simulation_pool(1, output_dir=sub_result_folder)
 
                 # for task in opt_config.tasks:
                 #     task_folder = task.split('/')[-1]
                 #     task_folder = task_folder.split('.')[0]
-                    
+
                 #     runner = SimulationRunner(
-                #         parsed_params, task, os.path.join(sub_result_folder, task_folder), 
+                #         parsed_params, task, os.path.join(sub_result_folder, task_folder),
                 #         True, add_folder_timestamp=False)
                 #     runner.run(parsed_params)
 
@@ -336,8 +337,8 @@ if __name__ == '__main__':
                 #         results_dir=runner.current_sim_results_dir)
 
                 #     print 'SIMULATION RESULT DIR=', runner.current_sim_results_dir
-                #     sim_eval = Evaluation(runner.recording_filename, 
-                #                         runner.current_sim_results_dir, 
+                #     sim_eval = Evaluation(runner.recording_filename,
+                #                         runner.current_sim_results_dir,
                 #                         time_offset=time_offset)
                 #     sim_eval.compute_kpis()
                 #     sim_eval.save_evaluation()
@@ -435,7 +436,7 @@ if __name__ == '__main__':
 
                     if t_force is None:
                         t_force, vec_force, vec_torque = sim_eval.recording.parsers['wrench_perturbation'].disturbances
-                    
+
                     kpis = sim_eval.get_kpis()
 
                     kpi_results.append(kpis)
@@ -490,16 +491,16 @@ if __name__ == '__main__':
     # ax = fig.gca(projection='3d')
 
     # ax.plot(
-    #     [d.x for d in desired], 
-    #     [d.y for d in desired], 
+    #     [d.x for d in desired],
+    #     [d.y for d in desired],
     #     [d.z for d in desired], 'b--', label='Desired path', linewidth=3)
     # ax.plot(
-    #     [d.x for d in traj[1]], 
-    #     [d.y for d in traj[1]], 
+    #     [d.x for d in traj[1]],
+    #     [d.y for d in traj[1]],
     #     [d.z for d in traj[1]], 'g', label='Initial set', linewidth=3)
     # ax.plot(
-    #     [d.x for d in traj[-1]], 
-    #     [d.y for d in traj[-1]], 
+    #     [d.x for d in traj[-1]],
+    #     [d.y for d in traj[-1]],
     #     [d.z for d in traj[-1]], 'r', label='Optimal set', linewidth=3)
 
     # ax.set_xlabel('X [m]', fontsize=20)

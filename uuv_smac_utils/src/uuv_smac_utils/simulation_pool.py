@@ -24,7 +24,7 @@ import random
 from .utils import *
 from uuv_simulation_runner import SimulationRunner
 from uuv_bag_evaluation import Evaluation
-from multiprocessing import Pool, Lock, Value 
+from multiprocessing import Pool, Lock, Value
 from .opt_configuration import OptConfiguration
 
 N_SIMULATION_RUNS = Value('i', 0)
@@ -37,12 +37,12 @@ THREAD_POOL = None
 
 def add_to_crash_log(data):
     assert isinstance(data, dict)
-    
+
     with N_SIMULATION_RUNS.get_lock():
         N_SIMULATION_RUNS.value += 1
     with N_CRASHES.get_lock():
         N_CRASHES.value += 1
-    
+
     SIMULATION_LOGGER.error('CRASHED - Simulation failed, info=')
     for tag in data:
         SIMULATION_LOGGER.error('\t%s=%s' % (tag, data[tag]))
@@ -61,7 +61,7 @@ def add_to_run_log(data):
 
     SIMULATION_LOGGER.info('SUCCESS - Simulation finished successfully, info=')
     for tag in data:
-        SIMULATION_LOGGER.info('\t%s=%s' % (tag, data[tag]))    
+        SIMULATION_LOGGER.info('\t%s=%s' % (tag, data[tag]))
 
     SIMULATION_LOGGER.info('# simulation runs=%d' % N_SIMULATION_RUNS.value)
     SIMULATION_LOGGER.info('\tSUCCESS=%d' % N_SUCCESS.value)
@@ -75,13 +75,13 @@ def run_simulation(task):
     SIMULATION_LOGGER.info('Starting simulation for task <%s>...' % task)
     SIMULATION_LOGGER.info('\tParameters=')
     for tag in sorted(opt_config.params.keys()):
-        SIMULATION_LOGGER.info('\t - %s=%.3f' % (tag, opt_config.params[tag]))
+        SIMULATION_LOGGER.info('\t - %s=%s' % (tag, str(opt_config.params[tag])))
     SIMULATION_LOGGER.info('\tPartial results root directory=' + opt_config.results_dir)
     SIMULATION_LOGGER.info('\tRecord all partial results? ' + str(opt_config.record_all))
 
     runner = None
     sim_eval = None
-    try:        
+    try:
         runner = SimulationRunner(
             opt_config.params, task, opt_config.results_dir, opt_config.record_all)
         runner.run(opt_config.params)
@@ -97,46 +97,46 @@ def run_simulation(task):
 
         if has_recording is False:
             SIMULATION_LOGGER.error('No recording generated for task <%s>' % task)
-        else:           
-            has_recording = False     
-            for _ in range(30):                    
-                for item in os.listdir(recording_dirname):                        
+        else:
+            has_recording = False
+            for _ in range(30):
+                for item in os.listdir(recording_dirname):
                     if item.endswith('.bag'):
                         has_recording = True
                         break
                     else:
                         sleep(0.1)
-                   
+
         if not has_recording:
             raise Exception('No recording generated for task <%s>, file=%s' % (task, runner.recording_filename))
     except Exception, e:
         SIMULATION_LOGGER.error('Error occurred in this iteration, setting simulation status to CRASHED for task <%s>, message=%s' % (task, str(e)))
         status = SIM_CRASHED
-        partial_cost = 1e7        
+        partial_cost = 1e7
 
         add_to_crash_log(dict(
             status=status,
             timestamp=str(datetime.datetime.now().isoformat()),
             message=str(e),
             task=str(task)))
-        
+
         output = dict(task=str(task), status=status, cost=partial_cost, sim_time=None, message=str(e))
 
         if runner is not None:
             if not runner.record_all_results:
                 runner.remove_recording_dir()
-            del runner          
+            del runner
         return output
     else:
         SIMULATION_LOGGER.info('Simulation finished, task=%s' % task)
 
     try:
         PROCESS_LOCK.acquire()
-        
+
         time_offset = 0.0
         if opt_config.evaluation_time_offset is not None:
             time_offset = max(0.0, opt_config.evaluation_time_offset)
-        
+
         SIMULATION_LOGGER.info('Start evaluation of the results')
         SIMULATION_LOGGER.info('\tTime offset for KPI evaluation[s]=' + str(time_offset))
         SIMULATION_LOGGER.info('\tResults files directory=' + runner.current_sim_results_dir)
@@ -148,7 +148,7 @@ def run_simulation(task):
         SIMULATION_LOGGER.info('Evaluation finished')
 
         sim_eval.compute_kpis()
-        
+
         if opt_config.store_kpis_only:
             sim_eval.save_kpis()
             SIMULATION_LOGGER.info('Store KPIs only')
@@ -158,12 +158,12 @@ def run_simulation(task):
 
         SIMULATION_LOGGER.info('Calculating cost function')
         partial_cost = opt_config.compute_cost_fcn(sim_eval.get_kpis())
-        
+
         if partial_cost < 0:
             raise Exception('Cost function returned value lower than zero')
-        
+
         sim_time = float(runner.timeout - time_offset)
-        
+
         opt_config.cost_fcn.save(runner.current_sim_results_dir)
 
         status = SIM_SUCCESS
@@ -171,15 +171,15 @@ def run_simulation(task):
             timestamp=str(datetime.datetime.now().isoformat()),
             status=status,
             cost=float(partial_cost),
-            sim_time=sim_time, 
+            sim_time=sim_time,
             results_dir=runner.current_sim_results_dir,
             recording_filename=runner.recording_filename,
             task=task)
 
         add_to_run_log(output)
 
-        SIMULATION_LOGGER.info('Cost function=' + str(partial_cost))            
-        SIMULATION_LOGGER.info('Simulation timeout=%.2f s' % sim_time)       
+        SIMULATION_LOGGER.info('Cost function=' + str(partial_cost))
+        SIMULATION_LOGGER.info('Simulation timeout=%.2f s' % sim_time)
 
         with open(os.path.join(runner.current_sim_results_dir, 'smac_result.yaml'), 'w+') as smac_file:
             yaml.dump(output, smac_file, default_flow_style=False)
@@ -191,7 +191,7 @@ def run_simulation(task):
             'setting simulation status to CRASHED for task '
             '<%s>, message=%s' % (task, str(e)))
         status = SIM_CRASHED
-        partial_cost = 1e7        
+        partial_cost = 1e7
 
         add_to_crash_log(dict(
             status=status,
@@ -209,18 +209,18 @@ def run_simulation(task):
         if sim_eval is not None:
             del sim_eval
 
-        return output        
-    
+        return output
+
     if runner is not None:
         if not runner.record_all_results:
             runner.remove_recording_dir()
         del runner
     if sim_eval is not None:
         del sim_eval
-        
-    PROCESS_LOCK.release()        
-    sleep(random.random() * 2)
-    return output        
+
+    PROCESS_LOCK.release()
+    sleep(random.random() * 5)
+    return output
 
 def start_simulation_pool(max_num_processes=None, tasks=None, log_filename=None, output_dir=None):
     global THREAD_POOL
@@ -241,26 +241,27 @@ def start_simulation_pool(max_num_processes=None, tasks=None, log_filename=None,
     else:
         original_results_path = None
 
-    try:
-        THREAD_POOL = Pool(processes=num_processes)
+    # try:
+    THREAD_POOL = Pool(processes=num_processes)
 
-        task_list = tasks
-        if tasks is None:
-            task_list = opt_config.tasks
-        output = THREAD_POOL.map(run_simulation, task_list)
-    except Exception, e:
-        SIMULATION_LOGGER.info('Key interrupt! Killing all processes, message=' + str(e))
-        THREAD_POOL.terminate()
-        THREAD_POOL.join()
-        if THREAD_POOL is not None:
-            del THREAD_POOL
-        THREAD_POOL = None
-        return None, None    
-    finally:   
-        THREAD_POOL.close()
-        THREAD_POOL.join()
+    task_list = tasks
+    if tasks is None:
+        task_list = opt_config.tasks
+    output = THREAD_POOL.map(run_simulation, task_list)
+    # except Exception, e:
+    #     SIMULATION_LOGGER.info('Error! Killing all processes, message=' + str(e))
+    #     if THREAD_POOL is not None:
+    #         THREAD_POOL.terminate()
+    #         THREAD_POOL.join()
+    #         del THREAD_POOL
+    #     THREAD_POOL = None
+    #     return None, None
+    # else:
+    THREAD_POOL.close()
+    THREAD_POOL.join()
 
-    del THREAD_POOL
+    if THREAD_POOL is not None:
+        del THREAD_POOL
     THREAD_POOL = None
 
     failed_tasks = list()
@@ -275,7 +276,7 @@ def start_simulation_pool(max_num_processes=None, tasks=None, log_filename=None,
     SIMULATION_LOGGER.info('Ending simulation pool, # failed tasks=%d' % len(failed_tasks))
 
     return output, failed_tasks
-    
+
 def stop_simulation_pool():
     global THREAD_POOL
     THREAD_POOL.terminate()
@@ -285,7 +286,7 @@ def stop_simulation_pool():
         del THREAD_POOL
     THREAD_POOL = None
 
-def killall_ros_processes():    
+def killall_ros_processes():
     process_names = [
         'rosmaster',
         'roslaunch',

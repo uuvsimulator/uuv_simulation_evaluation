@@ -65,7 +65,7 @@ class MotionPrimitive(object):
     def generate_optimal_trajectory(self, initial_pos, initial_rot, max_lin_vel, max_ang_vel, max_lin_acc, max_ang_acc):
         if self._waypoints is None:
             return None
-        
+
         if self._is_waypoint_based:
             return None
 
@@ -81,7 +81,7 @@ def get_base_plot(initial_pos, yaw):
     # Initialize triangular marker
     marker = np.array([[0, 0.75], [-0.5, -0.25], [0.5, -0.25]])
     for i in range(marker.shape[0]):
-        marker[i, :] = np.dot(rot, marker[i, :]) 
+        marker[i, :] = np.dot(rot, marker[i, :])
     marker += initial_pos[0:2]
 
     fig = plt.figure()
@@ -104,19 +104,19 @@ def add_waypoints_to_plot(ax, waypoint_set):
         last_waypoint = waypoint_set.get_waypoint(i - 1)
         this_waypoint = waypoint_set.get_waypoint(i)
         ax.plot(
-            [last_waypoint.x, this_waypoint.x], 
+            [last_waypoint.x, this_waypoint.x],
             [last_waypoint.y, this_waypoint.y],
             [last_waypoint.z, this_waypoint.z], 'g--', linewidth=2)
-        
+
     waypoint = waypoint_set.get_waypoint(0)
     ax.plot(
-        [waypoint.x], 
+        [waypoint.x],
         [waypoint.y],
         [waypoint.z], 'co', linewidth=2)
     for i in range(1, waypoint_set.num_waypoints):
         waypoint = waypoint_set.get_waypoint(i)
         ax.plot(
-            [waypoint.x], 
+            [waypoint.x],
             [waypoint.y],
             [waypoint.z], 'go', linewidth=2)
 
@@ -177,18 +177,18 @@ def generate_straight_line_sets(initial_pos, initial_yaw, config):
         [np.sin(a), np.cos(a), 0],
         [0, 0, 1]])
 
-    waypoint_start = Waypoint(initial_pos[0], initial_pos[1], initial_pos[2], config['max_forward_speed'])    
+    waypoint_start = Waypoint(initial_pos[0], initial_pos[1], initial_pos[2], config['max_forward_speed'])
 
     sets = list()
 
-    for s in config['straight_lines']['steps']:        
-        wp_set = WaypointSet()            
+    for s in config['straight_lines']['steps']:
+        wp_set = WaypointSet()
         for i in np.arange(0.1, 1.1, 0.1):
             target = i * np.array([s['x'], s['y'], s['z']]) + initial_pos
             waypoint_target = Waypoint(target[0], target[1], target[2], config['max_forward_speed'])
             wp_set.add_waypoint(waypoint_target)
         sets += [wp_set]
-        add_waypoints_to_plot(ax, wp_set) 
+        add_waypoints_to_plot(ax, wp_set)
 
     return sets
 
@@ -200,21 +200,21 @@ def generate_curves_sets(initial_pos, initial_yaw, config):
         [np.cos(a), -np.sin(a), 0],
         [np.sin(a), np.cos(a), 0],
         [0, 0, 1]])
-    
-    waypoint_start = Waypoint(initial_pos[0], initial_pos[1], initial_pos[2], config['max_forward_speed'])    
+
+    waypoint_start = Waypoint(initial_pos[0], initial_pos[1], initial_pos[2], config['max_forward_speed'])
 
     sets = list()
-    
-    # Creating curve to the right    
+
+    # Creating curve to the right
     center = initial_pos - np.array([0, config['curves']['radius'], 0])
     wp_set = WaypointSet()
 
-    for a in np.arange(0.9, 0.0, -0.1) * 2 * np.pi:    
+    for a in np.arange(0.9, -0.1, -0.1) * 2 * np.pi - 3 * np.pi / 2:
         waypoint_target = Waypoint(
-            config['curves']['radius'] * np.cos(a) + center[0], 
-            config['curves']['radius'] * np.sin(a) + center[1], 
+            config['curves']['radius'] * np.cos(a) + center[0],
+            config['curves']['radius'] * np.sin(a) + center[1],
             center[2], config['max_forward_speed'])
-        wp_set.add_waypoint(waypoint_target)    
+        wp_set.add_waypoint(waypoint_target)
 
     add_waypoints_to_plot(ax, wp_set)
     sets += [wp_set]
@@ -223,12 +223,12 @@ def generate_curves_sets(initial_pos, initial_yaw, config):
     center = initial_pos + np.array([0, config['curves']['radius'], 0])
     wp_set = WaypointSet()
 
-    for a in np.arange(0.1, 1.1, 0.1) * 2 * np.pi - np.pi / 2:    
+    for a in np.arange(0.1, 1.1, 0.1) * 2 * np.pi - np.pi / 2:
         waypoint_target = Waypoint(
-            config['curves']['radius'] * np.cos(a) + center[0], 
-            config['curves']['radius'] * np.sin(a) + center[1], 
+            config['curves']['radius'] * np.cos(a) + center[0],
+            config['curves']['radius'] * np.sin(a) + center[1],
             center[2], config['max_forward_speed'])
-        wp_set.add_waypoint(waypoint_target)    
+        wp_set.add_waypoint(waypoint_target)
 
     add_waypoints_to_plot(ax, wp_set)
     sets += [wp_set]
@@ -237,13 +237,13 @@ def generate_curves_sets(initial_pos, initial_yaw, config):
     center = initial_pos + np.array([config['curves']['radius'], 0, 0])
     wp_set = WaypointSet()
 
-    for a in np.arange(0.1, 1.1, 0.1) * np.pi / 2 - np.pi / 2:    
+    for a in np.arange(0.1, 1.1, 0.1) * np.pi / 2 - np.pi / 2:
         waypoint_target = Waypoint(
-            config['curves']['radius'] * np.sin(a) + center[0], 
-            center[1], 
-            config['curves']['radius'] * np.cos(a) + center[2], 
+            config['curves']['radius'] * np.sin(a) + center[0],
+            center[1],
+            config['curves']['radius'] * np.cos(a) + center[2],
             config['max_forward_speed'])
-        wp_set.add_waypoint(waypoint_target)    
+        wp_set.add_waypoint(waypoint_target)
 
     add_waypoints_to_plot(ax, wp_set)
     sets += [wp_set]
@@ -252,28 +252,28 @@ def generate_curves_sets(initial_pos, initial_yaw, config):
     center = initial_pos + np.array([0, 0, config['curves']['radius']])
     wp_set = WaypointSet()
 
-    for a in np.arange(0.9, -0.1, -0.1) * np.pi / 2 + np.pi / 2:    
+    for a in np.arange(0.9, -0.1, -0.1) * np.pi / 2 + np.pi / 2:
         waypoint_target = Waypoint(
-            config['curves']['radius'] * np.sin(a) + center[0], 
-            center[1], 
-            config['curves']['radius'] * np.cos(a) + center[2], 
+            config['curves']['radius'] * np.sin(a) + center[0],
+            center[1],
+            config['curves']['radius'] * np.cos(a) + center[2],
             config['max_forward_speed'])
-        wp_set.add_waypoint(waypoint_target)    
+        wp_set.add_waypoint(waypoint_target)
 
     add_waypoints_to_plot(ax, wp_set)
     sets += [wp_set]
 
-    # Creating motion to dive and move forwards    
+    # Creating motion to dive and move forwards
     center = initial_pos - np.array([0, 0, config['curves']['radius']])
     wp_set = WaypointSet()
 
-    for a in np.arange(0.1, 1.1, 0.1) * np.pi / 2:    
+    for a in np.arange(0.1, 1.1, 0.1) * np.pi / 2:
         waypoint_target = Waypoint(
-            config['curves']['radius'] * np.sin(a) + center[0], 
-            center[1], 
-            config['curves']['radius'] * np.cos(a) + center[2], 
+            config['curves']['radius'] * np.sin(a) + center[0],
+            center[1],
+            config['curves']['radius'] * np.cos(a) + center[2],
             config['max_forward_speed'])
-        wp_set.add_waypoint(waypoint_target)    
+        wp_set.add_waypoint(waypoint_target)
 
     add_waypoints_to_plot(ax, wp_set)
     sets += [wp_set]
@@ -282,13 +282,13 @@ def generate_curves_sets(initial_pos, initial_yaw, config):
     center = initial_pos + np.array([config['curves']['radius'], 0, 0])
     wp_set = WaypointSet()
 
-    for a in np.arange(0.9, -0.1, -0.1) * np.pi / 2 + np.pi:    
+    for a in np.arange(0.9, -0.1, -0.1) * np.pi / 2 + np.pi:
         waypoint_target = Waypoint(
-            config['curves']['radius'] * np.sin(a) + center[0], 
-            center[1], 
-            config['curves']['radius'] * np.cos(a) + center[2], 
+            config['curves']['radius'] * np.sin(a) + center[0],
+            center[1],
+            config['curves']['radius'] * np.cos(a) + center[2],
             config['max_forward_speed'])
-        wp_set.add_waypoint(waypoint_target)    
+        wp_set.add_waypoint(waypoint_target)
 
     add_waypoints_to_plot(ax, wp_set)
     sets += [wp_set]
@@ -304,7 +304,7 @@ def get_max_timeout(waypoint_set, interp_method):
             return interpolator.max_time - interpolator.start_time
     return -1
 
-        
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate files describing motion primitives")
     parser.add_argument('--config_file', type=str)
@@ -335,14 +335,14 @@ if __name__ == '__main__':
     with open(args.task_template_file, 'r') as t_file:
         task_template = yaml.load(t_file)
 
-    # Read the robot's namespace    
+    # Read the robot's namespace
     namespace = config['namespace']
     logger.info('Robot namespace=%s' % namespace)
 
     # Check if the vehicle if fully actuated
     is_fully_actuated = config['is_fully_actuated']
     logger.info('Is fully actuated? %s' % str(is_fully_actuated))
-    
+
     # Load the initial position and yaw
     assert 'initial_pose' in config
 
@@ -352,12 +352,12 @@ if __name__ == '__main__':
 
     logger.info('Initial position=(%.2f, %.2f, %.2f) m' % (config['initial_pose']['x'], config['initial_pose']['y'], config['initial_pose']['z']))
     logger.info('Initial yaw=%.2f rad' % config['initial_pose']['yaw'])
-    
+
     motion_files = list()
     timeouts = list()
 
     if 'straight_lines' in config:
-        waypoint_sets = generate_straight_line_sets(initial_pos, config['initial_pose']['yaw'], config)        
+        waypoint_sets = generate_straight_line_sets(initial_pos, config['initial_pose']['yaw'], config)
 
         folder_name = os.path.join(args.output_dir, 'lines')
         if not os.path.isdir(folder_name):
@@ -372,9 +372,9 @@ if __name__ == '__main__':
                 waypoint_sets[i].inertial_frame_id = config['inertial_frame_id']
                 waypoint_sets[i].export_to_file(folder_name, filename)
                 motion_files.append(os.path.join(folder_name, filename))
-                
+
     if 'curves' in config:
-        waypoint_sets = generate_curves_sets(initial_pos, config['initial_pose']['yaw'], config)       
+        waypoint_sets = generate_curves_sets(initial_pos, config['initial_pose']['yaw'], config)
 
         folder_name = os.path.join(args.output_dir, 'curves')
         if not os.path.isdir(folder_name):
@@ -384,7 +384,7 @@ if __name__ == '__main__':
             for i in range(len(waypoint_sets)):
                 t = get_max_timeout(waypoint_sets[i], config['curves']['interpolator'])
                 timeouts.append(t)
-                
+
                 filename = 'motion_%d.yml' % i
                 waypoint_sets[i].inertial_frame_id = config['inertial_frame_id']
                 waypoint_sets[i].export_to_file(folder_name, filename)
@@ -401,7 +401,7 @@ if __name__ == '__main__':
             for i in range(len(waypoint_sets)):
                 t = get_max_timeout(waypoint_sets[i], config['zig_zag']['interpolator'])
                 timeouts.append(t)
-                
+
                 filename = 'motion_%d.yml' % i
                 waypoint_sets[i].inertial_frame_id = config['inertial_frame_id']
                 waypoint_sets[i].export_to_file(folder_name, filename)
@@ -418,7 +418,7 @@ if __name__ == '__main__':
         if 'options' in config:
             for tag in config['options']:
                 task['execute']['params'][tag] = config['options'][tag]
-        if 'lines' in motion_files[i]:            
+        if 'lines' in motion_files[i]:
             task['execute']['params']['interpolator'] = config['straight_lines']['interpolator']
         elif 'curves' in motion_files[i]:
             task['execute']['params']['interpolator'] = config['curves']['interpolator']
