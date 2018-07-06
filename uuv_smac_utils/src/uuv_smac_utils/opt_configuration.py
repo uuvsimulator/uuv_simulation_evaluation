@@ -22,8 +22,7 @@ class OptConfiguration(object):
     CONFIG = None
 
 
-    def __init__(self, filename):       
-
+    def __init__(self, filename):
         assert os.path.isfile(filename)
 
         with open(filename, 'r') as opt_config_file:
@@ -52,7 +51,7 @@ class OptConfiguration(object):
 
         init_logger(self._log_filename)
 
-        task = self._opt_config['task']   
+        task = self._opt_config['task']
 
         if isinstance(task, list):
             SIMULATION_LOGGER.info('Multiple tasks found:')
@@ -96,11 +95,11 @@ class OptConfiguration(object):
             SIMULATION_LOGGER.info('Initializing cost function')
             self.cost_fcn = CostFunction()
             self.cost_fcn.from_dict(self._opt_config['cost_fcn'])
-                       
+
         if 'constraints' in self._opt_config:
             self.constraints = self._opt_config['constraints']
             assert isinstance(self.constraints, list)
-            self.cost_fcn.add_constraints(self._opt_config['constraints'])        
+            self.cost_fcn.add_constraints(self._opt_config['constraints'])
 
     @staticmethod
     def get_instance(filename=None):
@@ -112,7 +111,7 @@ class OptConfiguration(object):
             return OptConfiguration.CONFIG
 
     def parse_input(self, args):
-        self.params = parse_smac_input(args, self._opt_config['input_map'])   
+        self.params = parse_smac_input(args, self._opt_config['input_map'])
 
     def print_params(self):
         if self.params is None:
@@ -127,6 +126,3 @@ class OptConfiguration(object):
             return None
         self.cost_fcn.set_kpis(kpis)
         return self.cost_fcn.compute()
-
-    
-        
