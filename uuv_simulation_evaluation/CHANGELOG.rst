@@ -2,8 +2,8 @@
 Changelog for package uuv_simulation_evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.0 (2018-07-06)
+------------------
 * RM RF regression package
   Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
 * FIX Parsing of wrench disturbances
