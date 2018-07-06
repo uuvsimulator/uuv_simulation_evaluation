@@ -23,7 +23,6 @@ from pyquaternion import Quaternion
 import yaml
 from uuv_trajectory_generator.path_generator import PathGenerator
 from uuv_waypoints import WaypointSet, Waypoint
-import casadi
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import roslib
@@ -31,47 +30,9 @@ import rospy
 roslib.load_manifest('uuv_simulation_evaluation')
 
 
-class MotionPrimitive(object):
-    def __init__(self, is_waypoint_based=False, is_fully_actuated=True, output_dir='./', inertial_frame_id='world'):
-        assert os.path.isdir(output_dir), 'Invalid output directory'
-        assert inertial_frame_id in ['world', 'world_ned']
-        assert n_intervals > 0
-
-        self._output_dir = output_dir
-        self._is_waypoint_based = is_waypoint_based
-        self._is_fully_actuated = is_fully_actuated
-        self._n_intervals = n_intervals
-        self._inertial_frame_id = inertial_frame_id
-
-        self._waypoints = None
-        self._path_interpolators = dict()
-        for gen in PathGenerator.get_all_generators():
-            self._path_interpolators[gen.get_label()] = gen
-            self._path_interpolators[gen.get_label()].set_full_dof(not is_fully_actuated)
-
-    def store_motion_file(self, filename):
-        assert isinstance(waypoints, WaypointSet)
-
-        if self._is_waypoint_based:
-            self._waypoints.export_to_file(self._output_dir, filename + '.yml')
-
-    def set_waypoints(self, waypoints, interpolator, initial_rot, max_forward_speed):
-        assert isinstance(waypoints, WaypointSet)
-        assert interpolator in self._path_interpolators.keys()
-
-        self._waypoints = waypoints
-        self._path_interpolators.init_waypoints(waypoints, initial_rot)
-
-    def generate_optimal_trajectory(self, initial_pos, initial_rot, max_lin_vel, max_ang_vel, max_lin_acc, max_ang_acc):
-        if self._waypoints is None:
-            return None
-
-        if self._is_waypoint_based:
-            return None
-
-###################################################################################
+#############################################################################
 # Plot methods
-###################################################################################
+#############################################################################
 
 def get_base_plot(initial_pos, yaw):
     # Initialize the rotation matrix for the vehicle marker
@@ -120,9 +81,9 @@ def add_waypoints_to_plot(ax, waypoint_set):
             [waypoint.y],
             [waypoint.z], 'go', linewidth=2)
 
-###################################################################################
+#############################################################################
 # Waypoint set generator methods
-###################################################################################
+#############################################################################
 
 def generate_zig_zig_sets(initial_pos, initial_yaw, config):
     ax = get_base_plot(initial_pos, initial_yaw)
@@ -301,7 +262,7 @@ def get_max_timeout(waypoint_set, interp_method):
             interpolator = gen
             interpolator.init_waypoints(waypoint_set)
             interpolator.init_interpolator()
-            return interpolator.max_time - interpolator.start_time
+            return interpolator.max_time - interpolator.start_time + 10
     return -1
 
 
