@@ -24,7 +24,10 @@ SIM_SUCCESS = 'SUCCESS'
 SIM_CRASHED = 'CRASHED'
 
 def parse_smac_input(args, input_map):
-    p = vars(args)
+    if isinstance(args, dict):
+        p = args
+    else:
+        p = vars(args)
     params = dict()
     for tag in input_map:
         if type(input_map[tag]) == list:
@@ -59,7 +62,7 @@ def init_logger(log_filename=None):
 
         file_hdlr = logging.FileHandler(log_filename)
         file_hdlr.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
-        file_hdlr.setLevel(logging.INFO)        
+        file_hdlr.setLevel(logging.INFO)
 
         SIMULATION_LOGGER.addHandler(file_hdlr)
         SIMULATION_LOGGER.setLevel(logging.INFO)
