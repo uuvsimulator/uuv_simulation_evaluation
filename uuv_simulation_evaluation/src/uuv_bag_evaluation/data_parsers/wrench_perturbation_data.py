@@ -45,7 +45,7 @@ class WrenchPerturbationData(SimulationData):
 
         for x in bag.get_type_and_topic_info():
             for k in x:
-                if 'wrench_perturbation' in k:
+                if 'wrench_perturbation' in k and 'geometry_msgs/WrenchStamped' in x[k][0]:
                     self._topic_name = k
                     self._logger.info('Wrench perturbation topic found <%s>', k)
                     break
@@ -83,7 +83,7 @@ class WrenchPerturbationData(SimulationData):
                                   self._plot_configs['wrenches']['figsize'][1]))
         try:
             output_path = (self._output_dir if output_dir is None else output_dir)
-            
+
             ax = fig.add_subplot(211)
             ax.plot(self._time, [f[0] for f in self._recorded_data['force']], 'r', label=r'$F_X$',
                     linewidth=self._plot_configs['wrenches']['linewidth'])
