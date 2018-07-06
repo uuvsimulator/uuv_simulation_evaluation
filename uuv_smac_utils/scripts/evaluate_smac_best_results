@@ -13,6 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import matplotlib
+matplotlib.use('PDF')
 
 import argparse
 import roslib
@@ -27,17 +29,18 @@ from uuv_simulation_runner import SimulationRunner
 from uuv_bag_evaluation import Evaluation
 from uuv_bag_evaluation.metrics import KPI
 from uuv_cost_function import CostFunction
-from uuv_smac_utils import OptConfiguration, start_simulation_pool, stop_simulation_pool
+from uuv_smac_utils import OptConfiguration, start_simulation_pool, stop_simulation_pool, parse_smac_input
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+
 
 roslib.load_manifest('uuv_smac_utils')
 
 def run_simulation(idx, smac_results, output_dir):
-    smac_result = json.loads(smac_results[-1])
+    smac_result = json.loads(smac_results[idx])
     sub_result_folder = os.path.join(os.getcwd(), output_dir, str(idx))
 
-    result_folders[len(smac_results) - 1] = dict()
+    result_folders[idx] = dict()
 
     if not os.path.isdir(sub_result_folder):
         os.makedirs(sub_result_folder)
@@ -52,14 +55,37 @@ def run_simulation(idx, smac_results, output_dir):
         tag, value = item.split('=')
         parsed_params[tag] = float(value[1:-1])
 
-    opt_config.params = parsed_params
+    opt_config.parse_input(parsed_params)
     opt_config.results_dir = sub_result_folder
 
     failed_tasks = list()
-    output, failed_tasks = start_simulation_pool(1, output_dir=sub_result_folder)
+    output, failed_tasks = start_simulation_pool(4, output_dir=sub_result_folder)
 
-    print output
+    time_offset = 0.0
+    if opt_config.evaluation_time_offset is not None:
+        time_offset = max(0.0, opt_config.evaluation_time_offset)
+
+    for item in output:
+        sim_eval = Evaluation(item['recording_filename'],
+                              item['results_dir'],
+                              time_offset=time_offset)
+        sim_eval.compute_kpis()
+        sim_eval.save_evaluation()
+        sleep(0.1)
+
     return output
+
+
+def get_task_results(results, task):
+    output = dict()
+
+    for idx in results:
+        for item in results[idx]:
+            if item['task'] == task:
+                output[idx] = item
+
+    return output
+
 
 def plot_trajectories(results, output_dir):
     ########################################################################
@@ -68,23 +94,27 @@ def plot_trajectories(results, output_dir):
 
     opt_config = OptConfiguration.get_instance()
 
-    fig = plt.figure(figsize=(12, 8))
-    ax = fig.gca(projection='3d')
-
     time_offset = max(0.0, opt_config.evaluation_time_offset)
 
     for task in opt_config.tasks:
-        task_name = task.split('/')[-1]
+        fig = plt.figure(figsize=(12, 8))
+        ax = fig.gca(projection='3d')
+
+        task_results = get_task_results(results, task)
+        print 'Task=', task
+        print 'Results=', task_results
+
+        task_name = task_results[0]['task'].split('/')[-1]
         task_name = task_name.split('.')[0]
 
-        trajplot_dir = os.path.join(output_dir, 'trajectories', task_name)
+        trajplot_dir = os.path.join(output_dir, 'plots', task_name)
 
-        sim_eval = Evaluation(results[0]['recording_filename'],
-                            results[0]['results_dir'],
-                            time_offset=time_offset)
+        sim_eval = Evaluation(task_results[0]['recording_filename'],
+                              task_results[0]['results_dir'],
+                              time_offset=time_offset)
 
-        if desired is None:
-            desired = sim_eval.recording.parsers['trajectory'].reference.points
+
+        desired = sim_eval.recording.parsers['trajectory'].reference.points
 
         traj = sim_eval.recording.parsers['trajectory'].odometry.points
 
@@ -97,9 +127,29 @@ def plot_trajectories(results, output_dir):
             [d.y for d in traj],
             [d.z for d in traj], 'g', label='Initial set', linewidth=3)
 
-        sim_eval = Evaluation(results[1]['recording_filename'],
-                            results[1]['results_dir'],
-                            time_offset=time_offset)
+        # Calculating the boundaries of the paths
+        min_x = np.min([np.min([e.p[0] for e in desired]),
+                        np.min([e.p[0] for e in traj])])
+
+        max_x = np.max([np.max([e.p[0] for e in desired]),
+                        np.max([e.p[0] for e in traj])])
+
+        min_y = np.min([np.min([e.p[1] for e in desired]),
+                        np.min([e.p[1] for e in traj])])
+
+        max_y = np.max([np.max([e.p[1] for e in desired]),
+                        np.max([e.p[1] for e in traj])])
+
+        min_z = np.min([np.min([e.p[2] for e in desired]),
+                        np.min([e.p[2] for e in traj])])
+
+        max_z = np.max([np.max([e.p[2] for e in desired]),
+                        np.max([e.p[2] for e in traj])])
+
+        idx = task_results.keys()[-1]
+        sim_eval = Evaluation(task_results[idx]['recording_filename'],
+                              task_results[idx]['results_dir'],
+                              time_offset=time_offset)
 
         traj = sim_eval.recording.parsers['trajectory'].odometry.points
 
@@ -107,6 +157,20 @@ def plot_trajectories(results, output_dir):
             [d.x for d in traj],
             [d.y for d in traj],
             [d.z for d in traj], 'r', label='Optimal set', linewidth=3)
+
+        # Calculating the boundaries of the paths
+        min_x = np.min([min_x, np.min([e.p[0] for e in traj])])
+        max_x = np.max([max_x, np.max([e.p[0] for e in traj])])
+
+        min_y = np.min([min_y, np.min([e.p[1] for e in traj])])
+        max_y = np.max([max_y, np.max([e.p[1] for e in traj])])
+
+        min_z = np.min([min_z, np.min([e.p[2] for e in traj])])
+        max_z = np.max([max_z, np.max([e.p[2] for e in traj])])
+
+        ax.set_xlim(min_x - 1, max_x + 1)
+        ax.set_ylim(min_y - 1, max_y + 1)
+        ax.set_zlim(min_z - 1, max_z + 1)
 
         ax.set_xlabel('X [m]', fontsize=20)
         ax.set_ylabel('Y [m]', fontsize=20)
@@ -122,7 +186,10 @@ def plot_trajectories(results, output_dir):
 
         ax.legend(loc='upper left', fancybox=True, framealpha=0.8, fontsize=18)
         ax.grid(True)
-        plt.tight_layout()
+        # fig.tight_layout()
+
+        if not os.path.isdir(trajplot_dir):
+            os.makedirs(trajplot_dir)
 
         filename = os.path.join(trajplot_dir, 'trajectories_comparison.pdf')
         plt.savefig(filename)
@@ -154,7 +221,10 @@ def plot_cost(results_filename, output_dir):
     ax.set_xlim(np.min(evals), np.max(evals))
     plt.tight_layout()
 
-    filename = os.path.join(output_dir, 'smac_evolution.pdf')
+    if not os.path.isdir(os.path.join(output_dir, 'plots')):
+        os.makedirs(os.path.join(output_dir, 'plots'))
+
+    filename = os.path.join(output_dir, 'plots', 'smac_evolution.pdf')
     plt.savefig(filename)
     plt.close(fig)
 
@@ -192,6 +262,128 @@ def plot_kpis():
     # filename = os.path.join(args.output_dir, 'kpis_comparison.pdf')
     # plt.savefig(filename)
     # plt.clf()
+
+
+def plot_position_heading_error(results, output_dir):
+    ########################################################################
+    # Compare position error
+    ########################################################################
+
+    opt_config = OptConfiguration.get_instance()
+
+    time_offset = max(0.0, opt_config.evaluation_time_offset)
+
+    for task in opt_config.tasks:
+        fig = plt.figure(figsize=(10, 6))
+        task_results = get_task_results(results, task)
+        print 'Task=', task
+        print 'Results=', task_results
+
+        task_name = task_results[0]['task'].split('/')[-1]
+        task_name = task_name.split('.')[0]
+
+        # Plot position error
+        ax = fig.add_subplot(211)
+
+        sim_eval = Evaluation(task_results[0]['recording_filename'],
+                              task_results[0]['results_dir'],
+                              time_offset=time_offset)
+
+        error_t_ini = sim_eval._error_set.get_time()
+        error_vec_ini = KPI.get_error(sim_eval._error_set.get_data('position'))
+        error_yaw_vec_ini = sim_eval._error_set.get_data('yaw')
+
+        ax.plot(error_t_ini, error_vec_ini, color='#E2742B', linewidth=3, label='Initial set')
+
+        error_max = np.max(error_vec_ini)
+
+        # Reading current and force disturbances
+        t_cur, vec_cur = sim_eval.recording.parsers['current_velocity'].current_velocity
+        t_force, vec_force, vec_torque = sim_eval.recording.parsers['wrench_perturbation'].disturbances
+
+        idx = task_results.keys()[-1]
+        sim_eval = Evaluation(task_results[idx]['recording_filename'],
+                              task_results[idx]['results_dir'],
+                              time_offset=time_offset)
+
+        error_t_opt = sim_eval._error_set.get_time()
+        error_vec_opt = KPI.get_error(sim_eval._error_set.get_data('position'))
+        error_yaw_vec_opt = sim_eval._error_set.get_data('yaw')
+
+        ax.plot(error_t_opt, error_vec_opt, color='#6600CC', linewidth=3, label='Optimal set')
+
+        error_max = np.max([error_max, np.max(error_vec_opt)])
+
+        if vec_cur is not None:
+            v = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_cur])
+            if v.max() > 0:
+                v[v > 0] = 1.05
+                ax.fill_between(t_cur, 0, v * error_max, facecolor='blue', alpha=0.2, label='Current disturbance activated')
+
+        if vec_force is not None:
+            f = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_force])
+            tau = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_torque])
+
+            if f.max() > 0:
+                f[f > 0] = 1.05
+                ax.fill_between(t_force, 0, f * error_max, facecolor='red', alpha=0.2, label='Force disturbance activated')
+
+            if tau.max() > 0:
+                tau[tau > 0] = 1.05
+                ax.fill_between(t_force, 0, tau * error_max, facecolor='green', alpha=0.2, label='Torque disturbance activated')
+
+        ax.set_xlabel('Time [s]', fontsize=20)
+        ax.set_ylabel('Position error [m]', fontsize=20)
+        ax.legend(fancybox=True, framealpha=0.9, loc='upper left', fontsize=16)
+        ax.grid(True)
+        ax.tick_params(axis='both', labelsize=15)
+        ax.set_xlim(np.min(error_t_opt), np.max(error_t_opt))
+        ax.set_ylim(0, error_max * 1.05)
+
+        # Plot heading error
+        ax = fig.add_subplot(212)
+
+        ax.plot(error_t_ini, error_yaw_vec_ini, color='#E2742B', linewidth=3, label='Initial set')
+        ax.plot(error_t_opt, error_yaw_vec_opt, color='#6600CC', linewidth=3, label='Optimal set')
+
+        error_max = np.max([np.max(error_yaw_vec_ini), np.max(error_yaw_vec_opt)])
+        error_min = np.min([np.min(error_yaw_vec_ini), np.min(error_yaw_vec_opt)])
+        if vec_cur is not None:
+            v = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_cur])
+            if v.max() > 0:
+                v[v > 0] = 1.05
+                ax.fill_between(t_cur, v * error_min, v * error_max, facecolor='blue', alpha=0.2, label='Current disturbance activated')
+
+        if vec_force is not None:
+            f = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_force])
+            tau = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_torque])
+
+            if f.max() > 0:
+                f[f > 0] = 1.05
+                ax.fill_between(t_force, f * error_min, f * error_max, facecolor='red', alpha=0.2, label='Force disturbance activated')
+
+            if tau.max() > 0:
+                tau[tau > 0] = 1.05
+                ax.fill_between(t_force, tau * error_min, tau * error_max, facecolor='green', alpha=0.2, label='Torque disturbance activated')
+
+        ax.set_xlabel('Time [s]', fontsize=20)
+        ax.set_ylabel('Heading error [rad]', fontsize=20)
+        ax.legend(fancybox=True, framealpha=0.9, loc='upper left', fontsize=16)
+        ax.grid(True)
+        ax.tick_params(axis='both', labelsize=15)
+        ax.set_xlim(np.min(error_t_ini), np.max(error_t_ini))
+        ax.set_ylim(error_min * 1.05, error_max * 1.05)
+
+        plt.tight_layout()
+
+        errors_dir = os.path.join(output_dir, 'plots', task_name)
+        if not os.path.isdir(errors_dir):
+            os.makedirs(errors_dir)
+
+        filename = os.path.join(errors_dir, 'error_comparison.pdf')
+        plt.savefig(filename)
+        plt.close(fig)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluation of best SMAC output')
@@ -244,7 +436,7 @@ if __name__ == '__main__':
 
     opt_config = OptConfiguration.get_instance(os.path.join(args.input_dir, 'opt_config.yml'))
     opt_config.record_all = True
-    opt_config.store_kpis_only = False
+    opt_config.store_kpis_only = True
 
     time_offset = max(0.0, opt_config.evaluation_time_offset)
 
@@ -289,6 +481,7 @@ if __name__ == '__main__':
         result_folders[len(smac_results) - 1] = run_simulation(len(smac_results) - 1, smac_results, args.output_dir)
 
         plot_trajectories(result_folders, args.output_dir)
+        plot_position_heading_error(result_folders, args.output_dir)
 
         # with open(smac_file, 'r') as s_file:
         #     for line in s_file:
