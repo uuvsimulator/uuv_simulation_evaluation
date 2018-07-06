@@ -14,39 +14,46 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import matplotlib
+matplotlib.use('Agg')
+
 import argparse
 import roslib
 import os
 import yaml
 import sys
 import logging
+import random
+import datetime
 from copy import deepcopy
-from uuv_simulation_runner import SimulationRunner
-from uuv_bag_evaluation import Evaluation
-from uuv_cost_function import CostFunction
+from time import sleep
+from multiprocessing import Pool
+from multiprocessing import Lock
+from uuv_smac_utils import OptConfiguration, start_simulation_pool, stop_simulation_pool, killall_ros_processes
 
 roslib.load_manifest('uuv_smac_utils')
 
+OPT_CONFIG = OptConfiguration.get_instance('opt_config.yml')
 
-def parse_input(args, input_map):
-    p = vars(args)
-    params = dict()
-    for tag in input_map:
-        if type(input_map[tag]) == list:
-            p_cont = list()
-            for elem in input_map[tag]:
-                if type(elem) == str:
-                    p_cont.append(p[elem])
-                else:
-                    p_cont.append(elem)
-        else:
-            if type(input_map[tag]) == str:
-                p_cont = p[input_map[tag]]
-            else:
-                p_cont = input_map[tag]
-        params[tag] = p_cont
+# Initializing SMAC_WRAPPER_LOGGER
+SMAC_WRAPPER_LOGGER = logging.getLogger('smac_wrapper')
 
-    return params
+out_hdlr = logging.StreamHandler(sys.stdout)
+out_hdlr.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
+out_hdlr.setLevel(logging.INFO)
+SMAC_WRAPPER_LOGGER.addHandler(out_hdlr)
+SMAC_WRAPPER_LOGGER.setLevel(logging.INFO)
+
+if not os.path.isdir('logs'):
+    os.makedirs('logs')
+log_filename = os.path.join('logs', 'smac_wrapper.log')
+
+file_hdlr = logging.FileHandler(log_filename)
+file_hdlr.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
+file_hdlr.setLevel(logging.INFO)
+
+SMAC_WRAPPER_LOGGER.addHandler(file_hdlr)
+SMAC_WRAPPER_LOGGER.setLevel(logging.INFO)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='SMAC wrapper')
@@ -68,110 +75,95 @@ if __name__ == '__main__':
         'seed', type=int,
         help='A positive integer that the algorithm should use to seed itself (for reproducibility).')
 
-    logger = logging.getLogger('smac_wrapper')
-    out_hdlr = logging.StreamHandler(sys.stdout)
-    out_hdlr.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
-    out_hdlr.setLevel(logging.INFO)
-    logger.addHandler(out_hdlr)
-    logger.setLevel(logging.INFO)
-
-    # Load optimization configuration
-    with open('opt_config.yml', 'r') as c_file:
-        opt_config = yaml.load(c_file)
-
-    logger.info('Optimization configuration file <opt_config.yml> loaded '
-                'sucessfully')
-
-    assert 'cost_fcn' in opt_config, 'Cost function configuration available'
-    assert 'input_map' in opt_config, 'Input parameter map is not available'
-    assert 'parameters' in opt_config, 'Parameter labels is not available'
-
-    # SMAC problem-specific parameters
-    logger.info('Reading list of input parameters')
-    for param_tag in opt_config['parameters']:
+    SMAC_WRAPPER_LOGGER.info('Adding parameters to the parser')
+    for param_tag in OPT_CONFIG.parameters:
         parser.add_argument('-' + param_tag, type=float)
-        logger.info('\t -' + param_tag)
+        SMAC_WRAPPER_LOGGER.info('\t -' + param_tag)
 
     args = parser.parse_args()
 
-    task = opt_config['task']
-    logger.info('Retrieving filename for task function=' + task)
+    OPT_CONFIG.parse_input(args)
+    SMAC_WRAPPER_LOGGER.info('Input parameters=')
+    for tag in OPT_CONFIG.params:
+        SMAC_WRAPPER_LOGGER.info('\t - %s = %s' % (tag, str(OPT_CONFIG.params[tag])))
 
-    results_dir = opt_config['output_dir']
-    logger.info('Retrieving output directory for partial results=' + results_dir)
-    record_all = False
+    status = ''
 
-    params = parse_input(args, opt_config['input_map'])
+    output, failed_tasks = start_simulation_pool()
+    sleep(5)
 
-    if 'store_all_results' in opt_config:
-        record_all = opt_config['store_all_results']
+    cost = list()
+    sim_time = list()
+    tasks_status = list()
 
-    logger.info('Record all partial results? ' + str(record_all))
+    total_cost = 0.0
+    status = None
 
     try:
-        logger.info('Starting simulation...')
-        logger.info('\tParameters=' + str(params))
-        logger.info('\tPartial results root directory=' + results_dir)
-        logger.info('\tRecord all partial results? ' + str(record_all))
-        runner = SimulationRunner(params, task, results_dir, record_all)
+        for item in output:
+            SMAC_WRAPPER_LOGGER.info(item['task'])
+            SMAC_WRAPPER_LOGGER.info(item)
 
-        runner.run(params)
+            if item['status'] == 'CRASHED':
+                continue
 
-        logger.info('Simulation finished')
+            if status is None:
+                status = item['status']
 
-        time_offset = 0.0
-        if 'evaluation_time_offset' in opt_config:
-            time_offset = max(0.0, opt_config['evaluation_time_offset'])
+            cost.append(item['cost'])
+            sim_time.append(item['sim_time'])
+            tasks_status.append(item['status'])
 
-        logger.info('Start evaluation of the results')
-        logger.info('\tTime offset for KPI evaluation[s]=' + str(time_offset))
-        logger.info('\tResults files directory=' + runner.current_sim_results_dir)
-        logger.info('\tROS bag file=' + runner.recording_filename)
-        sim_eval = Evaluation(runner.recording_filename,
-                              runner.current_sim_results_dir,
-                              time_offset=time_offset)
+        repeat_count = 0
+        while len(failed_tasks) > 0 and repeat_count < 3:
+            SMAC_WRAPPER_LOGGER.info('Running failed tasks: %s' % str(failed_tasks))
+            output, failed_tasks = start_simulation_pool(1, failed_tasks)
+            sleep(5)
 
-        logger.info('Evaluation finished')
-        output_path = deepcopy(runner.current_sim_results_dir)
-        sim_eval.compute_kpis()
+            status = None
+            for item in output:
+                SMAC_WRAPPER_LOGGER.info(item['task'])
+                SMAC_WRAPPER_LOGGER.info(item)
 
-        if 'store_kpis_only' in opt_config:
-            if opt_config['store_kpis_only']:
-                sim_eval.save_kpis()
-                logger.info('Store KPIs only')
-            else:
-                sim_eval.save_evaluation()
-                logger.info('Store KPIs and graphs')
+                if item['status'] == 'CRASHED':
+                    continue
+
+                if status is None:
+                    status = item['status']
+
+                cost.append(item['cost'])
+                sim_time.append(item['sim_time'])
+                tasks_status.append(item['status'])
+
+            if len(failed_tasks) == 0:
+                break
+            repeat_count += 1
+
+        if len(failed_tasks) == 0:
+            total_time = sum(sim_time)
+            total_cost = sum([cost[i] * sim_time[i] / total_time for i in range(len(cost))])
+            SMAC_WRAPPER_LOGGER.info('All costs: %.2f' % total_cost)
+            for i in range(len(cost)):
+                SMAC_WRAPPER_LOGGER.info('\t%d - Cost=%.2f - Timeout=%.2f s' % (i, cost[i], sim_time[i]))
         else:
-            sim_eval.save_kpis()
-            logger.info('Store KPIs only')
-
-        logger.info('Calculating cost function')
-        cf = CostFunction()
-        cf.from_dict(opt_config['cost_fcn'])
-        cf.set_kpis(sim_eval.get_kpis())
-
-        if 'constraints' in opt_config:
-            assert type(opt_config['constraints']) == list, 'Constraints must defined on a list'
-            logger.info('Adding constraint models')
-            cf.add_constraints(opt_config['constraints'])
-
-        cost = cf.compute()
-        logger.info('Cost function=' + str(cost))
-        status = 'SUCCESS'
-        output = dict(status=status,
-                      cost=float(cost))
-
-        with open(os.path.join(runner.current_sim_results_dir, 'smac_result.yaml'), 'w+') as smac_file:
-            yaml.dump(output, smac_file, default_flow_style=False)
-
-        cf.save(runner.current_sim_results_dir)
-
-        del runner
-        del sim_eval
-    except Exception, e:
-        logger.error('Error occurred in this iteration, setting simulation status to CRASHED, message=' + str(e))
+            status = 'CRASHED'
+            total_cost = 1e7
+    except Exception as ex:
+        template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+        message = template.format(type(ex).__name__, ex.args)
+        SMAC_WRAPPER_LOGGER.error('Exception occured, message=' + message)
+        SMAC_WRAPPER_LOGGER.error('Simulation interrupted, finishing simulation pool')
+        stop_simulation_pool()
+        SMAC_WRAPPER_LOGGER.error('Simulation pool ended')
         status = 'CRASHED'
-        cost = 1e7
+        total_cost = 1e7
 
-    print('Result for SMAC: %s, 0, 0, %f, %s' % (status, cost, args.seed))
+    sleep(2 * random.random())
+
+    SMAC_WRAPPER_LOGGER.info('Killing remaining ROS processes')
+    killall_ros_processes()
+    SMAC_WRAPPER_LOGGER.info('Killing remaining ROS processes done')
+
+    sleep(2 * random.random())
+
+    print('Result for SMAC: %s, 0, 0, %f, %s' % (status, total_cost, args.seed))

@@ -19,7 +19,8 @@ from catkin_pkg.python_setup import generate_distutils_setup
 setup_args = generate_distutils_setup(
     packages=['uuv_cost_function',
               'uuv_bag_evaluation',
-              'uuv_bag_evaluation.metrics'],
+              'uuv_bag_evaluation.metrics',
+              'uuv_bag_evaluation.data_parsers'],
     package_dir={'': 'src'},
     requires=['rospy']
 )

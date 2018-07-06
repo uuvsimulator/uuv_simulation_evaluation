@@ -23,6 +23,7 @@ import shutil
 import psutil
 import datetime
 import socket
+import signal
 from threading import Timer
 from time import gmtime, strftime
 
@@ -44,9 +45,18 @@ class SimulationRunner(object):
     """
 
     def __init__(self, params, task_filename, results_folder='./results', record_all_results=False,
-                 add_folder_timestamp=True):
+                 add_folder_timestamp=True, log_filename=None, log_dir='logs'):
         # Setting up the logging
-        self._logger = logging.getLogger('run_simulation_wrapper')
+        self._task_name = task_filename.split('/')[-1]
+        self._task_name = self._task_name.split('.')[0]
+
+        self.record_all_results = record_all_results
+
+        self._log_dir = log_dir
+        if not os.path.isdir(log_dir):
+            os.makedirs(log_dir)
+
+        self._logger = logging.getLogger('run_simulation_wrapper_%s' % self._task_name)
         if len(self._logger.handlers) == 0:
             self._out_hdlr = logging.StreamHandler(sys.stdout)
             self._out_hdlr.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
@@ -54,10 +64,26 @@ class SimulationRunner(object):
             self._logger.addHandler(self._out_hdlr)
             self._logger.setLevel(logging.INFO)
 
+            if log_filename is None:
+                if not os.path.isdir('logs'):
+                    os.makedirs('logs')
+                log_filename = os.path.join('logs', 'simulation_task_%s.log' % self._task_name)
+
+            self._file_hdlr = logging.FileHandler(log_filename)
+            self._file_hdlr.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
+            self._file_hdlr.setLevel(logging.INFO)
+
+            self._logger.addHandler(self._file_hdlr)
+            self._logger.setLevel(logging.INFO)
+
+        self._logger.info('Record all results=' + str(record_all_results))
+
         assert type(params) is dict, 'Parameter structure must be a dict'
         self._params = params
 
         self._sim_counter = 0
+
+        random.seed()
 
         assert os.path.isfile(task_filename), 'Invalid task file'
         self._task_filename = task_filename
@@ -77,9 +103,6 @@ class SimulationRunner(object):
 
         self._logger.info('Results folder <%s>' % self._results_folder)
 
-        self._record_all_results = record_all_results
-
-        self._logger.info('Record all results=' + str(record_all_results))
         # Filename for the ROS bag
         self._recording_filename = None
 
@@ -94,12 +117,18 @@ class SimulationRunner(object):
 
         # Default timeout for the process
         self._timeout = 1e5
+        self._simulation_timeout = None
         # POpen object to be instantiated
         self._process = None
 
 
     def __del__(self):
-        if not self._record_all_results:
+        self._logger.info('Destroying simulation runner')
+        if self._recording_filename is None:
+            self._logger.info('Recording filename was not initialized')
+        else:
+            self._logger.info('Recording filename=' + str(self._recording_filename))
+        if not self.record_all_results:
             self.remove_recording_dir()
 
     @property
@@ -113,6 +142,10 @@ class SimulationRunner(object):
     @property
     def process_timeout_triggered(self):
         return self._process_timeout_triggered
+
+    @property
+    def timeout(self):
+        return self._simulation_timeout
 
     def _port_open(self, port):
         return_code = 1
@@ -160,16 +193,54 @@ class SimulationRunner(object):
         os.environ['ROS_HOME'] = ros_home
 
     def _kill_process(self):
-        if self._process:
-            self._process.kill()
-            self._process_timeout_triggered = True
-            self._logger.info('PROCESS TIMEOUT - finishing process...')
+        if self._process is not None:
+            if psutil.pid_exists(self._process.pid):
+                self._logger.error('PROCESS TIMEOUT - killing process tree...')
+                proc = psutil.Process(self._process.pid)
+                children = proc.children(recursive=True)
+                # Include parent
+                children.append(proc)
+
+                for p in children:
+                    p.send_signal(signal.SIGTERM)
+
+                gone, alive = psutil.wait_procs(
+                    children,
+                    timeout=None,
+                    callback=self._on_terminate)
+
+                self._logger.error('Kill processes=\n\t - Gone={}\n\t - Alive{}'.format(str(gone), str(alive)))
+
+                self._process_timeout_triggered = True
+                self._logger.error('PROCESS TIMEOUT - finishing process...')
+        else:
+            self._logger.error('Simulation process already died')
+
+    def _on_terminate(self, process):
+        try:
+            self._logger.warning('Process {} <{}> terminated with exit code {}'.format(process, process.name(), process.returncode))
+        except Exception, e:
+            self._logger.error('Error in on_terminate function, message=' + str(e))
+
+    def _create_script_file(self, output_dir, cmd):
+        try:
+            filename = os.path.join(output_dir, 'run_simulation.sh')
+            self._logger.info('Creating script file=' + filename)
+            with open(filename, 'w+') as script_file:
+                script_file.write('#!/usr/bin/env bash\n')
+                script_file.write(cmd)
+            self._logger.info('Script file created=' + filename)
+        except Exception, e:
+            self._logger.error('Error while creating script file, message=' + str(e))
 
     def remove_recording_dir(self):
-        if self._recording_filename is not None and not self._record_all_results:
+        if self._recording_filename is not None and not self.record_all_results:
             rec_path = os.path.dirname(self._recording_filename)
-            self._logger.info('Removing old directory, path=' + rec_path)
-            shutil.rmtree(rec_path)
+            if os.path.isdir(rec_path):
+                self._logger.info('Removing recording directory, path=' + rec_path)
+                shutil.rmtree(rec_path)
+            else:
+                self._logger.info('Recording directory has already been deleted, path=' + rec_path)
 
     def run(self, params=dict(), timeout=None):
         if len(params.keys()):
@@ -187,7 +258,9 @@ class SimulationRunner(object):
         if self._add_folder_timestamp:
             self._sim_results_dir = os.path.join(
                 self._results_folder,
-                strftime("%Y-%m-%d %H:%M:%S", gmtime()) + '_' + str(random.randrange(0, 1000, 1))).replace(' ', '_')
+                self._task_name + '_' + \
+                strftime("%Y-%m-%d %H-%M-%S", gmtime()) + '_' + \
+                str(random.randrange(0, 1000, 1))).replace(' ', '_')
         else:
             self._sim_results_dir = self._results_folder
 
@@ -202,7 +275,7 @@ class SimulationRunner(object):
         if len(self._params.keys()):
             with open(os.path.join(self._sim_results_dir,
                                    'params_%d.yml' % self._sim_counter), 'w') as param_file:
-                yaml.dump(self._params, param_file, default_flow_style=False)
+                yaml.safe_dump(self._params, param_file, default_flow_style=False, encoding='utf-8', allow_unicode=True)
 
         self._logger.info('Running the simulation through system call')
 
@@ -228,8 +301,9 @@ class SimulationRunner(object):
                         # Setting the process timeout
                         if task['execute']['params'][param] > 0 and timeout is None:
                             # Set the process timeout to 5 times the given simulation timeout
-                            self._timeout = 1.5 * int(task['execute']['params'][param])
-                            self._logger.info('Simulation timeout t=%.f s' % task['execute']['params'][param])
+                            self._simulation_timeout = task['execute']['params'][param]
+                            self._timeout = 5 * int(self._simulation_timeout)
+                            self._logger.info('Simulation timeout t=%.f s' % self._simulation_timeout)
                         else:
                             self._logger.error('Invalid timeout = %.f' % task['execute']['params'][param])
 
@@ -238,7 +312,7 @@ class SimulationRunner(object):
                     if timeout > 0:
                         self._timeout = timeout
                 self._logger.info('Process timeout t=%.f s' % self._timeout)
-                
+
                 cmd = cmd + 'bag_filename:=\"' + self._recording_filename + '\" '
 
                 for param in self._params:
@@ -252,10 +326,19 @@ class SimulationRunner(object):
 
                 # Create log file
                 timestamp = datetime.datetime.now().isoformat()
-                logfile_name = os.path.join(self._sim_results_dir, "process_log-%s.log" % timestamp)
+                log_dir = os.path.join(self._log_dir, self._task_name)
+                if not os.path.isdir(log_dir):
+                    os.makedirs(log_dir)
+                logfile_name = os.path.join(log_dir, "%s_process_log_%s.log" % (timestamp, self._task_name))
                 logfile = open(logfile_name, 'a')
+
+                # Create script with the command being run for eventual manual rerun
+                self._create_script_file(self._sim_results_dir, cmd)
                 # Start process
                 self._process = psutil.Popen(cmd, shell=True, stdout=logfile, stderr=logfile, env=os.environ.copy())
+
+                proc = psutil.Process(self._process.pid)
+                self._logger.info('Process created (Name=%s, PID=%d)' % (proc.name(), proc.pid))
                 # Start process timeout, which is a security measure in case something happens, e.g. roscore not responding
                 # If the process timeout is reached before the simulation process is finished, this function
                 # will return false
@@ -272,8 +355,7 @@ class SimulationRunner(object):
         except Exception, e:
             self._logger.error('Error while running the simulation, message=' + str(e))
             result_ok = False
-            if self._process:
-                self._process.kill()
+            self._kill_process()
 
         self._unlock_port(self._ros_port)
         self._unlock_port(self._gazebo_port)

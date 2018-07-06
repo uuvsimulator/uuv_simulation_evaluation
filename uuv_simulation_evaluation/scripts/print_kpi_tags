@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Copyright (c) 2016 The UUV Simulator Authors.
 # All rights reserved.
 #
@@ -13,21 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import glob
+from __future__ import print_function
+import roslib
+import uuv_bag_evaluation
 
-all_list = list()
-for f in glob.glob(os.path.dirname(__file__) + '/*.py'):
-    if os.path.isfile(f) and not os.path.basename(f).startswith('_'):
-        all_list.append(os.path.basename(f)[:-3])
+roslib.load_manifest('uuv_simulation_evaluation')
 
-__all__ = all_list  
+if __name__ == '__main__':
+    KPIS = list()
+    for kpi in uuv_bag_evaluation.metrics.KPI.get_all_kpi_tags():
+        if uuv_bag_evaluation.metrics.KPI.get_kpi_target(kpi) == 'error':
+            for error_tag in uuv_bag_evaluation.error.ErrorSet.TAGS:
+                KPIS.append('%s_%s' % (kpi, error_tag))
+        else:
+            KPIS.append(kpi)
 
-from .kpi import KPI
-from .max_abs_thrust import MaxAbsThrust
-from .mean_abs_thrust import MeanAbsThrust
-from .rms_error import RMSError
-from .max_error import MaxError
-from .mean_abs_error import MeanAbsoluteError
-from .euclidean_error import EuclideanError
-from .peak_to_peak import PeakToPeak
+    print('Simulation KPIs available:')    
+
+    for tag in KPIS:
+        print('\t - ', tag)
+

@@ -30,8 +30,8 @@ class MaxAbsThrust(KPI):
         if self._bag is not None:
             # Initialize the data structure for this KPI
             self._input_values = dict()
-            for i in range(self._bag.n_thrusters):
-                t, thrusts = self._bag.get_thruster_data(i)
+            for i in range(self._bag.parsers['thrusters'].n_thrusters):
+                t, thrusts = self._bag.parsers['thrusters'].get_thrust_data(i)
                 t = np.array(t)
                 assert time_offset < np.max(t), 'Time offset out of range'
                 self._input_values[i] = np.array(thrusts)

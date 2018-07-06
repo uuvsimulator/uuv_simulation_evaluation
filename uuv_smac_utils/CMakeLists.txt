@@ -7,6 +7,8 @@ find_package(catkin REQUIRED COMPONENTS
   uuv_simulation_evaluation
   uuv_simulation_wrapper)
 
+catkin_python_setup()
+
 catkin_package()
 
 catkin_install_python(PROGRAMS scripts/smac_wrapper

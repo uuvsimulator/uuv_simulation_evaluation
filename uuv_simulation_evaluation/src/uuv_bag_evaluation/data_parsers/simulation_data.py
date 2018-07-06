@@ -12,22 +12,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import rospy
+import numpy as np 
 import logging
 import sys
-import rosbag
-import numpy as np
-from data_parsers import SimulationData
-from uuv_trajectory_generator import TrajectoryGenerator, TrajectoryPoint
 
 
-class Recording:
-    __instance = None
+class SimulationData(object):
+    LABEL = ""
 
-    def __init__(self, filename):
+    def __init__(self, topic_name=None, message_type=None, prefix=None):
         # Setting up the log
-        self._logger = logging.getLogger('read_rosbag')
+        self._logger = logging.getLogger(self.LABEL)
         if len(self._logger.handlers) == 0:
             out_hdlr = logging.StreamHandler(sys.stdout)
             out_hdlr.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
@@ -35,31 +30,29 @@ class Recording:
             self._logger.addHandler(out_hdlr)
             self._logger.setLevel(logging.INFO)
 
-        # Bag filename
-        self._filename = filename
-        self._bag = rosbag.Bag(filename)
+        self._topic_name = topic_name
+        self._message_type = message_type
+        self._time = None
+        self._prefix = prefix
+        self._recorded_data = dict()
+        self._output_dir = '/tmp'
+
+    @staticmethod
+    def get_all_parsers():
+        return SimulationData.__subclasses__()
+
+    @staticmethod
+    def get_all_labels():
+        return [parser.LABEL for parser in SimulationData.get_all_parsers()]
         
-        self.parsers = dict()
+    def read_data(self, bag):
+        raise NotImplementedError()
 
-        self._is_init = False
+    def get_data(self, *args):
+        raise NotImplementedError()
 
-        Recording.__instance = self
-
-    @classmethod
-    def get_instance(cls):
-        if cls.__instance is None:
-            cls.__instance = Recording()
-        return cls.__instance
-
-    @property
-    def is_init(self):
-        return self._is_init
-
-    def init_parsers(self):        
-        self._logger.info('Initializing parsers')
-        for parser in SimulationData.get_all_parsers():
-            self._logger.info('Initializing parser=%s', parser.LABEL)               
-            self.parsers[parser.LABEL] = parser(self._bag)
-        self._is_init = True
-
-  
+    def plot(self, output_dir):
+        raise NotImplementedError()
+    
+    def get_data(self):
+        return self._time, self._recorded_data    

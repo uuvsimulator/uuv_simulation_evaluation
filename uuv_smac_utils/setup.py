@@ -13,21 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import glob
+from distutils.core import setup
+from catkin_pkg.python_setup import generate_distutils_setup
 
-all_list = list()
-for f in glob.glob(os.path.dirname(__file__) + '/*.py'):
-    if os.path.isfile(f) and not os.path.basename(f).startswith('_'):
-        all_list.append(os.path.basename(f)[:-3])
+setup_args = generate_distutils_setup(
+    packages=['uuv_smac_utils'],
+    package_dir={'': 'src'},
+    requires=['rospy']
+)
 
-__all__ = all_list  
-
-from .kpi import KPI
-from .max_abs_thrust import MaxAbsThrust
-from .mean_abs_thrust import MeanAbsThrust
-from .rms_error import RMSError
-from .max_error import MaxError
-from .mean_abs_error import MeanAbsoluteError
-from .euclidean_error import EuclideanError
-from .peak_to_peak import PeakToPeak
+setup(**setup_args)

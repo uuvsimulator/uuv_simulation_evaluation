@@ -23,11 +23,14 @@ for f in glob.glob(os.path.dirname(__file__) + '/*.py'):
 
 __all__ = all_list  
 
-from .kpi import KPI
-from .max_abs_thrust import MaxAbsThrust
-from .mean_abs_thrust import MeanAbsThrust
-from .rms_error import RMSError
-from .max_error import MaxError
-from .mean_abs_error import MeanAbsoluteError
-from .euclidean_error import EuclideanError
-from .peak_to_peak import PeakToPeak
+from .auv_command_data import AUVCommandData
+from .concentration_sensor_data import ConcentrationSensorData
+from .current_velocity_data import CurrentVelocityData
+from .error_data import ErrorData
+from .fins_data import FinsData
+from .salinity_data import SalinityData
+from .thruster_data import ThrusterData
+from .thruster_manager_data import ThrusterManagerData
+from .trajectory_data import TrajectoryData
+from .wrench_perturbation_data import WrenchPerturbationData
+from .simulation_data import SimulationData
