@@ -23,6 +23,7 @@ import shutil
 import psutil
 import datetime
 import socket
+import signal
 from threading import Timer
 from time import gmtime, strftime
 
@@ -50,7 +51,7 @@ class SimulationRunner(object):
         self._task_name = self._task_name.split('.')[0]
 
         self.record_all_results = record_all_results
-        
+
         self._log_dir = log_dir
         if not os.path.isdir(log_dir):
             os.makedirs(log_dir)
@@ -70,7 +71,7 @@ class SimulationRunner(object):
 
             self._file_hdlr = logging.FileHandler(log_filename)
             self._file_hdlr.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
-            self._file_hdlr.setLevel(logging.INFO)        
+            self._file_hdlr.setLevel(logging.INFO)
 
             self._logger.addHandler(self._file_hdlr)
             self._logger.setLevel(logging.INFO)
@@ -101,7 +102,7 @@ class SimulationRunner(object):
         self._results_folder = os.path.abspath(self._results_folder)
 
         self._logger.info('Results folder <%s>' % self._results_folder)
-        
+
         # Filename for the ROS bag
         self._recording_filename = None
 
@@ -192,10 +193,45 @@ class SimulationRunner(object):
         os.environ['ROS_HOME'] = ros_home
 
     def _kill_process(self):
-        if self._process:
-            self._process.kill()
-            self._process_timeout_triggered = True
-            self._logger.info('PROCESS TIMEOUT - finishing process...')
+        if self._process is not None:
+            if psutil.pid_exists(self._process.pid):
+                self._logger.error('PROCESS TIMEOUT - killing process tree...')
+                proc = psutil.Process(self._process.pid)
+                children = proc.children(recursive=True)
+                # Include parent
+                children.append(proc)
+
+                for p in children:
+                    p.send_signal(signal.SIGTERM)
+
+                gone, alive = psutil.wait_procs(
+                    children,
+                    timeout=None,
+                    callback=self._on_terminate)
+
+                self._logger.error('Kill processes=\n\t - Gone={}\n\t - Alive{}'.format(str(gone), str(alive)))
+
+                self._process_timeout_triggered = True
+                self._logger.error('PROCESS TIMEOUT - finishing process...')
+        else:
+            self._logger.error('Simulation process already died')
+
+    def _on_terminate(self, process):
+        try:
+            self._logger.warning('Process {} <{}> terminated with exit code {}'.format(process, process.name(), process.returncode))
+        except Exception, e:
+            self._logger.error('Error in on_terminate function, message=' + str(e))
+
+    def _create_script_file(self, output_dir, cmd):
+        try:
+            filename = os.path.join(output_dir, 'run_simulation.sh')
+            self._logger.info('Creating script file=' + filename)
+            with open(filename, 'w+') as script_file:
+                script_file.write('#!/usr/bin/env bash\n')
+                script_file.write(cmd)
+            self._logger.info('Script file created=' + filename)
+        except Exception, e:
+            self._logger.error('Error while creating script file, message=' + str(e))
 
     def remove_recording_dir(self):
         if self._recording_filename is not None and not self.record_all_results:
@@ -239,7 +275,7 @@ class SimulationRunner(object):
         if len(self._params.keys()):
             with open(os.path.join(self._sim_results_dir,
                                    'params_%d.yml' % self._sim_counter), 'w') as param_file:
-                yaml.dump(self._params, param_file, default_flow_style=False)
+                yaml.safe_dump(self._params, param_file, default_flow_style=False, encoding='utf-8', allow_unicode=True)
 
         self._logger.info('Running the simulation through system call')
 
@@ -276,7 +312,7 @@ class SimulationRunner(object):
                     if timeout > 0:
                         self._timeout = timeout
                 self._logger.info('Process timeout t=%.f s' % self._timeout)
-                
+
                 cmd = cmd + 'bag_filename:=\"' + self._recording_filename + '\" '
 
                 for param in self._params:
@@ -295,8 +331,14 @@ class SimulationRunner(object):
                     os.makedirs(log_dir)
                 logfile_name = os.path.join(log_dir, "%s_process_log_%s.log" % (timestamp, self._task_name))
                 logfile = open(logfile_name, 'a')
+
+                # Create script with the command being run for eventual manual rerun
+                self._create_script_file(self._sim_results_dir, cmd)
                 # Start process
                 self._process = psutil.Popen(cmd, shell=True, stdout=logfile, stderr=logfile, env=os.environ.copy())
+
+                proc = psutil.Process(self._process.pid)
+                self._logger.info('Process created (Name=%s, PID=%d)' % (proc.name(), proc.pid))
                 # Start process timeout, which is a security measure in case something happens, e.g. roscore not responding
                 # If the process timeout is reached before the simulation process is finished, this function
                 # will return false
@@ -313,8 +355,7 @@ class SimulationRunner(object):
         except Exception, e:
             self._logger.error('Error while running the simulation, message=' + str(e))
             result_ok = False
-            if self._process:
-                self._process.kill()
+            self._kill_process()
 
         self._unlock_port(self._ros_port)
         self._unlock_port(self._gazebo_port)
