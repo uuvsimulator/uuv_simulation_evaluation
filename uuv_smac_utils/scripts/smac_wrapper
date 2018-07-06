@@ -27,7 +27,7 @@ import random
 import datetime
 from copy import deepcopy
 from time import sleep
-from multiprocessing import Pool 
+from multiprocessing import Pool
 from multiprocessing import Lock
 from uuv_smac_utils import OptConfiguration, start_simulation_pool, stop_simulation_pool, killall_ros_processes
 
@@ -50,7 +50,7 @@ log_filename = os.path.join('logs', 'smac_wrapper.log')
 
 file_hdlr = logging.FileHandler(log_filename)
 file_hdlr.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
-file_hdlr.setLevel(logging.INFO)        
+file_hdlr.setLevel(logging.INFO)
 
 SMAC_WRAPPER_LOGGER.addHandler(file_hdlr)
 SMAC_WRAPPER_LOGGER.setLevel(logging.INFO)
@@ -74,7 +74,7 @@ if __name__ == '__main__':
     parser.add_argument(
         'seed', type=int,
         help='A positive integer that the algorithm should use to seed itself (for reproducibility).')
-    
+
     SMAC_WRAPPER_LOGGER.info('Adding parameters to the parser')
     for param_tag in OPT_CONFIG.parameters:
         parser.add_argument('-' + param_tag, type=float)
@@ -91,7 +91,7 @@ if __name__ == '__main__':
 
     output, failed_tasks = start_simulation_pool()
     sleep(5)
-    
+
     cost = list()
     sim_time = list()
     tasks_status = list()
@@ -104,9 +104,9 @@ if __name__ == '__main__':
             SMAC_WRAPPER_LOGGER.info(item['task'])
             SMAC_WRAPPER_LOGGER.info(item)
 
-            if item['status'] == 'CRASHED':            
+            if item['status'] == 'CRASHED':
                 continue
-                
+
             if status is None:
                 status = item['status']
 
@@ -137,7 +137,7 @@ if __name__ == '__main__':
 
             if len(failed_tasks) == 0:
                 break
-            repeat_count += 1        
+            repeat_count += 1
 
         if len(failed_tasks) == 0:
             total_time = sum(sim_time)
@@ -147,7 +147,7 @@ if __name__ == '__main__':
                 SMAC_WRAPPER_LOGGER.info('\t%d - Cost=%.2f - Timeout=%.2f s' % (i, cost[i], sim_time[i]))
         else:
             status = 'CRASHED'
-            total_cost = 1e7 
+            total_cost = 1e7
     except Exception as ex:
         template = "An exception of type {0} occurred. Arguments:\n{1!r}"
         message = template.format(type(ex).__name__, ex.args)
@@ -156,7 +156,7 @@ if __name__ == '__main__':
         stop_simulation_pool()
         SMAC_WRAPPER_LOGGER.error('Simulation pool ended')
         status = 'CRASHED'
-        total_cost = 1e7 
+        total_cost = 1e7
 
     sleep(2 * random.random())
 
