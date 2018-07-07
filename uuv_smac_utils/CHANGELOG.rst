@@ -2,6 +2,9 @@
 Changelog for package uuv_smac_utils
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.2.0 (2018-07-06)
 ------------------
 * UPDATE SMAC wrapper for multi-task scenarios
