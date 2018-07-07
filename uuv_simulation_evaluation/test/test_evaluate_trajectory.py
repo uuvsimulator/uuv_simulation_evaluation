@@ -13,6 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import matplotlib
+matplotlib.use('Agg')
 
 PKG = 'uuv_simulation_evaluation'
 NAME = 'test_evaluate_trajectory'

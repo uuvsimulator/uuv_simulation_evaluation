@@ -2,6 +2,9 @@
 Changelog for package uuv_simulation_runner_example
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.2.1 (2018-07-07)
+------------------
+
 0.2.0 (2018-07-06)
 ------------------
 * FIX Software version numbering

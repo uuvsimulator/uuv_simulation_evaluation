@@ -2,6 +2,12 @@
 Changelog for package uuv_simulation_evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.2.1 (2018-07-07)
+------------------
+* FIX Set Agg backend for evaluation tests
+Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* Contributors: Musa Morena Marcusso Manhaes
+
 0.2.0 (2018-07-06)
 ------------------
 * RM RF regression package
