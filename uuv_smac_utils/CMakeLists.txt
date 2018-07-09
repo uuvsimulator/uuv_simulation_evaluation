@@ -17,4 +17,5 @@ catkin_install_python(PROGRAMS scripts/smac_wrapper
                                scripts/evaluate_smac_best_results
                                scripts/smac
                                scripts/create_results_folder
+                               scripts/generate_motion_primitives
                       DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})

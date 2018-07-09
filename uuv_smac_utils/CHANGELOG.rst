@@ -2,6 +2,14 @@
 Changelog for package uuv_smac_utils
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.2.2 (2018-07-09)
+------------------
+* FIX Add configured initial position in task configuration
+Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* ADD Option of starting motion before all motion primitives
+Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* Contributors: Musa Morena Marcusso Manhaes
+
 0.2.1 (2018-07-07)
 ------------------
 
@@ -18,6 +26,7 @@ Changelog for package uuv_smac_utils
 * ADD Option file parser for SMAC scenarios
   Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
 * Contributors: Musa Morena Marcusso Manhaes
+
 
 0.1.5 (2018-06-06)
 ------------------
