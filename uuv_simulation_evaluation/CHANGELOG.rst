@@ -2,6 +2,12 @@
 Changelog for package uuv_simulation_evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* ADD Option of starting motion before all motion primitives
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* Contributors: Musa Morena Marcusso Manhaes
+
 0.2.1 (2018-07-07)
 ------------------
 * FIX Set Agg backend for evaluation tests
