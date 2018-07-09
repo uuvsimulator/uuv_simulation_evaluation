@@ -468,6 +468,10 @@ if __name__ == '__main__':
 
         task['execute']['params']['motion_file'] = motion_files[i]
         task['execute']['params']['timeout'] = float(timeouts[i] + 2)
+        task['execute']['params']['x'] = float(initial_pos[0])
+        task['execute']['params']['y'] = float(initial_pos[1])
+        task['execute']['params']['z'] = float(initial_pos[2])
+        task['execute']['params']['yaw'] = float(config['initial_pose']['yaw'])
 
         if 'options' in config:
             for tag in config['options']:
@@ -481,5 +485,8 @@ if __name__ == '__main__':
 
         with open(os.path.join(args.task_dir, filename), 'w+') as t_file:
             yaml.dump(task, t_file, default_flow_style=False)
+
+        logger.info('Task #%d stored=', i)
+        print(task)
 
     plt.show()
