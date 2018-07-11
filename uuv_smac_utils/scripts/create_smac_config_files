@@ -173,6 +173,11 @@ cd $(rospack find <opt_catkin_pkg>)/smac_config
 rosrun uuv_smac_utils evaluate_smac_best_results
 """
 
+RM_FILES_SCRIPT = \
+"""#!/usr/bin/env bash
+cd $(rospack find <opt_catkin_pkg>)/smac_config
+rm -rf output_*.yml scenario_* smac3* results *.log logs UUV_TERMINATE
+"""
 
 class Template:
     __slots__ = ['filename', 'data', 'dir']
@@ -218,6 +223,12 @@ class TemplateRunSMACScript(TemplateScript):
         self.data = RUN_SMAC_SCRIPT
         self.replace_catkin_pkg()
 
+class TemplateRunRMScript(TemplateScript):
+    def __init__(self, output_dir, catkin_pkg=None):
+        TemplateScript.__init__(self, output_dir, catkin_pkg)
+        self.filename = 'rm_smac_files'
+        self.data = RM_FILES_SCRIPT
+        self.replace_catkin_pkg()
 
 class TemplateRunSMACRestoreStateScript(TemplateScript):
     def __init__(self, output_dir, catkin_pkg=None):
@@ -325,7 +336,7 @@ if __name__ == '__main__':
             print('Catkin package already exists!')
             sys.exit(1)
         print('Optimization catkin_package = ' + catkin_pkg)
-        os.system('catkin_create_pkg ' + catkin_pkg)
+        os.system('catkin create pkg ' + catkin_pkg)
         if not os.path.isdir(catkin_pkg):
             print('Catkin package could not be created')
             sys.exit(1)
@@ -355,7 +366,8 @@ if __name__ == '__main__':
              TemplateRunSMACScript(scripts_dir, catkin_pkg),
              TemplateRunPSMACScript(scripts_dir, catkin_pkg),
              TemplateEvaluationScript(scripts_dir, catkin_pkg),
-             TemplateRunSMACRestoreStateScript(scripts_dir, catkin_pkg)]
+             TemplateRunSMACRestoreStateScript(scripts_dir, catkin_pkg),
+             TemplateRunRMScript(scripts_dir, catkin_pkg)]
 
     if catkin_pkg is not None:
         files.append(TemplateLaunchFile(launch_file_dir, launch_file))
