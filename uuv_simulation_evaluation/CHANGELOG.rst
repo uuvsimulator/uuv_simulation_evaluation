@@ -2,6 +2,9 @@
 Changelog for package uuv_simulation_evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.2.2 (2018-07-09)
 ------------------
 * ADD Option of starting motion before all motion primitives
