@@ -13,24 +13,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import matplotlib
-matplotlib.use('Agg')
-
+import signal
 import argparse
 import roslib
 import os
-import yaml
 import sys
 import logging
 import random
-import datetime
-from copy import deepcopy
 from time import sleep
-from multiprocessing import Pool
-from multiprocessing import Lock
-from uuv_smac_utils import OptConfiguration, start_simulation_pool, stop_simulation_pool, killall_ros_processes
+from uuv_smac_utils import OptConfiguration, start_simulation_pool, \
+    stop_simulation_pool
 
+matplotlib.use('Agg')
 roslib.load_manifest('uuv_smac_utils')
 
 OPT_CONFIG = OptConfiguration.get_instance('opt_config.yml')
@@ -54,6 +49,18 @@ file_hdlr.setLevel(logging.INFO)
 
 SMAC_WRAPPER_LOGGER.addHandler(file_hdlr)
 SMAC_WRAPPER_LOGGER.setLevel(logging.INFO)
+
+
+def signal_handler(signal, frame):
+    SMAC_WRAPPER_LOGGER.warning('SIGNAL RECEIVED=%d', int(signal))
+    SMAC_WRAPPER_LOGGER.warning('Killing simulation pool...')
+    stop_simulation_pool()
+    sys.exit(0)
+
+
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='SMAC wrapper')
@@ -157,12 +164,6 @@ if __name__ == '__main__':
         SMAC_WRAPPER_LOGGER.error('Simulation pool ended')
         status = 'CRASHED'
         total_cost = 1e7
-
-    sleep(2 * random.random())
-
-    SMAC_WRAPPER_LOGGER.info('Killing remaining ROS processes')
-    killall_ros_processes()
-    SMAC_WRAPPER_LOGGER.info('Killing remaining ROS processes done')
 
     sleep(2 * random.random())
 

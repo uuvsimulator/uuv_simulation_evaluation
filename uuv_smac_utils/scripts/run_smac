@@ -13,49 +13,63 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-PKG = 'uuv_smac_utils'
-
+from __future__ import print_function
 import rospy
 import os
+import signal
+import logging
 import subprocess
 import threading
-import argparse
 import psutil
-import datetime
+import argparse
+import sys
 from time import gmtime, strftime
 import random
 from rospkg import RosPack
+import roslib
 
-import roslib; roslib.load_manifest(PKG)
+
+PKG = 'uuv_smac_utils'
+roslib.load_manifest(PKG)
 
 ROSPACK_INST = RosPack()
 
 SMAC_SCRIPT = os.path.join(ROSPACK_INST.get_path(PKG), 'scripts', 'smac')
-SMAC_WRAPPER = os.path.join(ROSPACK_INST.get_path(PKG), 'scripts', 'smac_wrapper')
+SMAC_WRAPPER = os.path.join(
+    ROSPACK_INST.get_path(PKG), 'scripts', 'smac_wrapper')
 PARAM_FILE = 'parameter_config.pcs'
 
-# Definining some output colors
-ENDC = '\033[0m'
-COLORS = dict(red='\033[91m',
-              green='\033[92m',
-              yellow='\033[93m',
-              light_purple='\033[94m',
-              purple='\033[95m',
-              cyan='\033[96m',
-              light_gray='\033[97m')
+# Initializing LOGGER
+LOGGER = logging.getLogger('smac_wrapper')
 
-def print_with_color(color, msg):
-    if color not in COLORS:
-        color = COLORS['red']
-    print COLORS[color] + msg + ENDC
+out_hdlr = logging.StreamHandler(sys.stdout)
+out_hdlr.setFormatter(logging.Formatter(
+    '%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
+out_hdlr.setLevel(logging.INFO)
+LOGGER.addHandler(out_hdlr)
+LOGGER.setLevel(logging.INFO)
+
+if not os.path.isdir('logs'):
+    os.makedirs('logs')
+log_filename = os.path.join('logs', 'run_smac.log')
+
+file_hdlr = logging.FileHandler(log_filename)
+file_hdlr.setFormatter(logging.Formatter(
+    '%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
+file_hdlr.setLevel(logging.INFO)
+
+LOGGER.addHandler(file_hdlr)
+LOGGER.setLevel(logging.INFO)
+
 
 def create_scenario_file(n):
     datestr = strftime("%Y-%m-%d_%H:%M:%S", gmtime())
-    scenario_filename = 'scenario_%s_%d.txt' % (datestr, random.randrange(0, 1e5, 1))
+    scenario_filename = 'scenario_%s_%d.txt' % (datestr,
+                                                random.randrange(0, 1e5, 1))
     scenario_filename = scenario_filename.replace(':', '-')
 
-    print 'Creating scenario configuration file, filename=', scenario_filename
+    LOGGER.info('Creating scenario configuration file, filename=%s',
+                scenario_filename)
 
     with open(scenario_filename, 'w') as s_file:
         s_file.write('algo = python %s\n' % SMAC_WRAPPER)
@@ -67,8 +81,8 @@ def create_scenario_file(n):
 
     return scenario_filename
 
-class SMACProcess(threading.Thread):
 
+class SMACProcess(threading.Thread):
     def __init__(self, scenario_filename, mode, is_parallel=False, color='red',
                  restore_state_folder=None):
         threading.Thread.__init__(self)
@@ -88,17 +102,38 @@ class SMACProcess(threading.Thread):
             if os.path.isdir(restore_state_folder):
                 self.cmd += ' --restore_state %s' % restore_state_folder
 
+        signal.signal(signal.SIGTERM, self.signal_handler)
+        signal.signal(signal.SIGINT, self.signal_handler)
+
     def finish(self):
         if self.proc:
-            self.proc.kill()
-            print 'SMAC process killed'
+            try:
+                LOGGER.info('Killing SMAC process...')
+                if psutil.pid_exists(self.proc.pid):
+                    LOGGER.warning('Sending SIGTERM signal to SMAC process')
+                    self.proc.send_signal(signal.SIGTERM)
+                    self.proc.join()
+                    LOGGER.warning('Done!')
+                else:
+                    LOGGER.warning('SMAC process has already been terminated')
+                LOGGER.info('SMAC process killed')
+            except Exception as ex:
+                LOGGER.error('Error killing process=%s', str(ex))
+
+    def signal_handler(self, signal, frame):
+        LOGGER.info('Signal received=%d', int(signal))
+        with open('UUV_TERMINATE', 'w+') as t_file:
+            t_file.write(strftime("%Y-%m-%d_%H:%M:%S", gmtime()))
+        self.finish()
+        sys.exit(0)
 
     def run(self):
-        print 'Start SMAC process, cmd=', self.cmd
+        LOGGER.info('Start SMAC process, cmd=%s', self.cmd)
         self.proc = subprocess.Popen(
             self.cmd.split(), stdin=None, stdout=None, stderr=None,
             universal_newlines=True)
         returncode = self.proc.wait()
+        LOGGER.info('Return code=%d', int(returncode))
 
 
 if __name__ == '__main__':
@@ -139,12 +174,12 @@ if __name__ == '__main__':
 
     assert args.n_smacs > 0, 'Number of SMAC instances must be greater than zero'
     if args.n_smacs > 1:
-        print 'Number of SMAC instances = %d', args.n_smacs
+        LOGGER.info('Number of SMAC instances = %d', args.n_smacs)
         for n in range(args.n_smacs):
             scenario_filename = create_scenario_file(args.max_runs)
 
-            print '#%d SMAC PROCESS' % n
-            print 'Scenario filename = %s' % scenario_filename
+            LOGGER.info('#%d SMAC PROCESS' % n)
+            LOGGER.info('Scenario filename = %s' % scenario_filename)
             restore_state_folder = None
             if os.path.isdir(args.restore_state):
                 restore_state_folder = args.restore_state
@@ -165,9 +200,9 @@ if __name__ == '__main__':
 
         for proc in procs:
             proc.join()
-    except KeyboardInterrupt:
-        print 'SMAC optimization interrupted, finishing all processes'
+    except Exception as ex:
+        LOGGER.warning('SMAC optimization interrupted, finishing all processes')
         for proc in procs:
             proc.finish()
 
-    print 'SMAC optimization finished!'
+    LOGGER.info('SMAC optimization finished!')
