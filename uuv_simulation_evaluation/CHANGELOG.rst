@@ -2,6 +2,9 @@
 Changelog for package uuv_simulation_evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.2.4 (2018-07-11)
 ------------------
 
