@@ -2,6 +2,9 @@
 Changelog for package uuv_simulation_wrapper
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.2.3 (2018-07-11)
 ------------------
 * ADD Function to kill simulation child processes
