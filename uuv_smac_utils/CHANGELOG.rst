@@ -2,6 +2,14 @@
 Changelog for package uuv_smac_utils
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.2.3 (2018-07-11)
+------------------
+* ADD Send SIGTERM to the simulation process pool
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* ADD Signal handler for SIGINT and SIGTERM
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* Contributors: Musa Morena Marcusso Manhães
+
 0.2.2 (2018-07-09)
 ------------------
 * FIX Add configured initial position in task configuration
@@ -26,7 +34,6 @@ Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
 * ADD Option file parser for SMAC scenarios
   Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
 * Contributors: Musa Morena Marcusso Manhaes
-
 
 0.1.5 (2018-06-06)
 ------------------
