@@ -46,10 +46,12 @@ def parse_smac_input(args, input_map):
 
     return params
 
+
 def init_logger(log_filename=None):
     if len(SIMULATION_LOGGER.handlers) == 0:
         out_hdlr = logging.StreamHandler(sys.stdout)
-        out_hdlr.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
+        out_hdlr.setFormatter(logging.Formatter(
+            '%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
         out_hdlr.setLevel(logging.INFO)
 
         SIMULATION_LOGGER.addHandler(out_hdlr)
@@ -58,10 +60,11 @@ def init_logger(log_filename=None):
         if log_filename is None:
             if not os.path.isdir('logs'):
                 os.makedirs('logs')
-            log_filename = os.path.join('logs', 'simulation.log')
+            log_filename = os.path.join('logs', 'simulation_pool.log')
 
         file_hdlr = logging.FileHandler(log_filename)
-        file_hdlr.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
+        file_hdlr.setFormatter(logging.Formatter(
+            '%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
         file_hdlr.setLevel(logging.INFO)
 
         SIMULATION_LOGGER.addHandler(file_hdlr)

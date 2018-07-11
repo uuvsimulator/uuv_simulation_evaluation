@@ -18,6 +18,7 @@ import yaml
 import logging
 import sys
 import datetime
+import signal
 from copy import deepcopy
 from time import sleep
 import random
@@ -31,10 +32,27 @@ from .opt_configuration import OptConfiguration
 N_SIMULATION_RUNS = Value('i', 0)
 N_SUCCESS = Value('i', 0)
 N_CRASHES = Value('i', 0)
+TERMINATE_ALL_PROCESSES = Value('i', 0)
 
 PROCESS_LOCK = Lock()
 
 THREAD_POOL = None
+
+
+def signal_handler(signal, frame):
+    SIMULATION_LOGGER.warning('SIGNAL RECEIVED=%d', int(signal))
+    if THREAD_POOL is not None:
+        SIMULATION_LOGGER.warning('Finishing all processes in the '
+                                  'simulation pool')
+        with TERMINATE_ALL_PROCESSES.get_lock():
+            TERMINATE_ALL_PROCESSES.value = 1
+        THREAD_POOL.terminate()
+        THREAD_POOL.join()
+        SIMULATION_LOGGER.warning('SIGTERM sent to all processes')
+
+
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
 
 
 def add_to_crash_log(data):
@@ -72,6 +90,11 @@ def add_to_run_log(data):
 
 
 def run_simulation(task):
+    if TERMINATE_ALL_PROCESSES.value == 1:
+        SIMULATION_LOGGER.warning('Process pool has been terminated, '
+                                  'finishing simulation process')
+        return dict()
+
     random.seed()
     sleep(random.random())
     opt_config = OptConfiguration.get_instance()
@@ -114,7 +137,9 @@ def run_simulation(task):
         if not has_recording:
             raise Exception('No recording generated for task <%s>, file=%s' % (task, runner.recording_filename))
     except Exception, e:
-        SIMULATION_LOGGER.error('Error occurred in this iteration, setting simulation status to CRASHED for task <%s>, message=%s' % (task, str(e)))
+        SIMULATION_LOGGER.error('Error occurred in this iteration, '
+                                'setting simulation status to CRASHED for '
+                                'task <%s>, message=%s' % (task, str(e)))
         status = SIM_CRASHED
         partial_cost = 1e7
 
@@ -267,7 +292,7 @@ def start_simulation_pool(max_num_processes=None, tasks=None, log_filename=None,
         if tasks is None:
             task_list = opt_config.tasks
         output = THREAD_POOL.map(run_simulation, task_list)
-    except Exception, e:
+    except Exception as e:
         SIMULATION_LOGGER.error('Error! Killing all processes, message=' + str(e))
         if THREAD_POOL is not None:
             THREAD_POOL.terminate()
@@ -350,30 +375,22 @@ def start_simulation_pool(max_num_processes=None, tasks=None, log_filename=None,
     if original_results_path is not None:
         opt_config.results_dir = original_results_path
 
-    SIMULATION_LOGGER.info('Ending simulation pool, # failed tasks=%d' % len(failed_tasks))
+    SIMULATION_LOGGER.info('Ending simulation pool, '
+                           '# failed tasks=%d' % len(failed_tasks))
 
     return output, failed_tasks
 
+
 def stop_simulation_pool():
-    global THREAD_POOL
-    THREAD_POOL.terminate()
-    THREAD_POOL.join()
+    try:
+        SIMULATION_LOGGER.warning('Killing all processes...')
+        global THREAD_POOL
+        THREAD_POOL.terminate()
+        THREAD_POOL.join()
 
-    if THREAD_POOL is not None:
-        del THREAD_POOL
-    THREAD_POOL = None
-
-def killall_ros_processes():
-    process_names = [
-        'roscore',
-        'rosmaster',
-        'roslaunch',
-        'rosout',
-        'gzserver',
-        'gzclient']
-
-    cmd = 'killall -9 '
-    for p in process_names:
-       cmd += '%s ' % p
-    SIMULATION_LOGGER.info('Killing remaining processes, cmd=%s' % cmd)
-    os.system(cmd)
+        if THREAD_POOL is not None:
+            del THREAD_POOL
+        THREAD_POOL = None
+        SIMULATION_LOGGER.warning('Simulation pool terminated')
+    except Exception as ex:
+        SIMULATION_LOGGER.error(str(ex))
