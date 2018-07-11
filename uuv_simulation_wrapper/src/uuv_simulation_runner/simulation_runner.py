@@ -22,12 +22,12 @@ import random
 import shutil
 import psutil
 import datetime
+import signal
 import socket
 import signal
 from threading import Timer
-from time import gmtime, strftime
+from time import gmtime, strftime, sleep
 
-LOG_FORMATTER = logging.Formatter('%(asctime)s %(name)-10s: %(levelname)-8s %(message)s')
 ROS_DEFAULT_HOST = 'localhost'
 ROS_DEFAULT_PORT = 11311
 GAZEBO_DEFAULT_HOST = 'localhost'
@@ -44,8 +44,9 @@ class SimulationRunner(object):
     bag and configuration files.
     """
 
-    def __init__(self, params, task_filename, results_folder='./results', record_all_results=False,
-                 add_folder_timestamp=True, log_filename=None, log_dir='logs'):
+    def __init__(self, params, task_filename, results_folder='./results',
+                 record_all_results=False, add_folder_timestamp=True,
+                 log_filename=None, log_dir='logs'):
         # Setting up the logging
         self._task_name = task_filename.split('/')[-1]
         self._task_name = self._task_name.split('.')[0]
@@ -56,10 +57,12 @@ class SimulationRunner(object):
         if not os.path.isdir(log_dir):
             os.makedirs(log_dir)
 
-        self._logger = logging.getLogger('run_simulation_wrapper_%s' % self._task_name)
+        self._logger = logging.getLogger(
+            'run_simulation_wrapper_%s' % self._task_name)
         if len(self._logger.handlers) == 0:
             self._out_hdlr = logging.StreamHandler(sys.stdout)
-            self._out_hdlr.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
+            self._out_hdlr.setFormatter(logging.Formatter(
+                '%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
             self._out_hdlr.setLevel(logging.INFO)
             self._logger.addHandler(self._out_hdlr)
             self._logger.setLevel(logging.INFO)
@@ -67,14 +70,30 @@ class SimulationRunner(object):
             if log_filename is None:
                 if not os.path.isdir('logs'):
                     os.makedirs('logs')
-                log_filename = os.path.join('logs', 'simulation_task_%s.log' % self._task_name)
+                log_filename = os.path.join(
+                    'logs', 'simulation_task_%s.log' % self._task_name)
 
             self._file_hdlr = logging.FileHandler(log_filename)
-            self._file_hdlr.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
+            self._file_hdlr.setFormatter(
+                logging.Formatter(
+                    '%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
             self._file_hdlr.setLevel(logging.INFO)
 
             self._logger.addHandler(self._file_hdlr)
             self._logger.setLevel(logging.INFO)
+
+        parent_pid = os.getppid()
+        if not psutil.pid_exists(parent_pid):
+            self._logger.error('Parent process has died, exiting simulation '
+                               'runner...')
+            sys.exit(0)
+        else:
+            self._logger.info('Parent process is still alive')
+
+        if os.path.isfile('UUV_TERMINATE'):
+            self._logger.error('UUV_TERMINATE file found, exiting simulation '
+                               'runner...')
+            sys.exit(0)
 
         self._logger.info('Record all results=' + str(record_all_results))
 
@@ -120,14 +139,19 @@ class SimulationRunner(object):
         self._simulation_timeout = None
         # POpen object to be instantiated
         self._process = None
+        self._process_children = list()
 
+        signal.signal(signal.SIGTERM, self.signal_handler)
+        signal.signal(signal.SIGINT, self.signal_handler)
 
     def __del__(self):
-        self._logger.info('Destroying simulation runner')
+        self._logger.warning('Destroying simulation runner')
+        self._kill_process()
         if self._recording_filename is None:
-            self._logger.info('Recording filename was not initialized')
+            self._logger.warning('Recording filename was not initialized')
         else:
-            self._logger.info('Recording filename=' + str(self._recording_filename))
+            self._logger.warning('Recording filename=%s',
+                                 str(self._recording_filename))
         if not self.record_all_results:
             self.remove_recording_dir()
 
@@ -146,6 +170,10 @@ class SimulationRunner(object):
     @property
     def timeout(self):
         return self._simulation_timeout
+
+    def signal_handler(self, signal, handler):
+        self._logger.warning('SIGNAL RECEIVED=%d', int(signal))
+        self.__del__()
 
     def _port_open(self, port):
         return_code = 1
@@ -193,32 +221,56 @@ class SimulationRunner(object):
         os.environ['ROS_HOME'] = ros_home
 
     def _kill_process(self):
-        if self._process is not None:
-            if psutil.pid_exists(self._process.pid):
-                self._logger.error('PROCESS TIMEOUT - killing process tree...')
-                proc = psutil.Process(self._process.pid)
-                children = proc.children(recursive=True)
-                # Include parent
-                children.append(proc)
+        if self._process is None:
+            self._logger.warning('Process object is invalid')
+            return
+        if len(self._process_children) == 0:
+            self._logger.warning('No children processes found')
+            return
+        try:
+            self._logger.warning('PROCESS TIMEOUT - killing process tree...')
 
-                for p in children:
+            for p in self._process_children:
+                if psutil.pid_exists(p.pid):
+                    self._logger.warning('Sending SIGTERM to child '
+                                         'process id=%d', p.pid)
                     p.send_signal(signal.SIGTERM)
+                    if psutil.pid_exists(p.pid):
+                        self._logger.warning('Child process %d '
+                                             'successfully terminated',
+                                             p.pid)
+                    else:
+                        self._logger.error('Child process %d still '
+                                           'running', p.pid)
+                else:
+                    self._logger.warning('Child process %d is not alive',
+                                         p.pid)
 
-                gone, alive = psutil.wait_procs(
-                    children,
-                    timeout=None,
-                    callback=self._on_terminate)
+            gone, alive = psutil.wait_procs(
+                self._process_children,
+                timeout=None,
+                callback=self._on_terminate)
 
-                self._logger.error('Kill processes=\n\t - Gone={}\n\t - Alive{}'.format(str(gone), str(alive)))
+            self._logger.warning(
+                'Kill processes=\n\t - Gone={}\n\t - '
+                'Alive{}'.format(str(gone), str(alive)))
 
-                self._process_timeout_triggered = True
-                self._logger.error('PROCESS TIMEOUT - finishing process...')
-        else:
-            self._logger.error('Simulation process already died')
+            self._process_timeout_triggered = True
+            self._logger.warning('PROCESS TIMEOUT - finishing process...')
+        except Exception as ex:
+            self._logger.error('Error occurred while killing processes, '
+                               'message=%s' % str(ex))
 
     def _on_terminate(self, process):
         try:
-            self._logger.warning('Process {} <{}> terminated with exit code {}'.format(process, process.name(), process.returncode))
+            if psutil.pid_exists(process.pid):
+                self._logger.warning('Process {} <{}> terminated with exit'
+                                     ' code {}'.format(process.pid,
+                                                       process.name(),
+                                                       process.returncode))
+            else:
+                self._logger.warning('Process {} already '
+                                     'terminated'.format(process.pid))
         except Exception, e:
             self._logger.error('Error in on_terminate function, message=' + str(e))
 
@@ -243,7 +295,7 @@ class SimulationRunner(object):
                 self._logger.info('Recording directory has already been deleted, path=' + rec_path)
 
     def run(self, params=dict(), timeout=None):
-        if len(params.keys()):
+        if len(params.keys()) > 0:
             for tag in self._params:
                 if tag not in params:
                     raise Exception('Parameter list has the wrong dimension')
@@ -339,6 +391,12 @@ class SimulationRunner(object):
 
                 proc = psutil.Process(self._process.pid)
                 self._logger.info('Process created (Name=%s, PID=%d)' % (proc.name(), proc.pid))
+
+                # Loading all the process's children
+                sleep(1)
+                self._process_children = proc.children(recursive=True)
+                self._process_children.append(proc)
+
                 # Start process timeout, which is a security measure in case something happens, e.g. roscore not responding
                 # If the process timeout is reached before the simulation process is finished, this function
                 # will return false
