@@ -25,7 +25,8 @@ class OptConfiguration(object):
     def __init__(self, filename):
         assert os.path.isfile(filename)
 
-        with open(filename, 'r') as opt_config_file:
+        self.opt_config_filename = filename
+        with open(self.opt_config_filename, 'r') as opt_config_file:
             self._opt_config = yaml.load(opt_config_file)
 
         assert 'cost_fcn' in self._opt_config, 'Cost function configuration available'

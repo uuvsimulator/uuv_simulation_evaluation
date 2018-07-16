@@ -31,6 +31,8 @@ import rospy
 roslib.load_manifest('uuv_simulation_evaluation')
 
 
+SHOW_PLOTS = False
+
 #############################################################################
 # Plot methods
 #############################################################################
@@ -87,7 +89,8 @@ def add_waypoints_to_plot(ax, waypoint_set):
 #############################################################################
 
 def generate_zig_zig_sets(initial_pos, initial_yaw, config, start_motion=None):
-    ax = get_base_plot(initial_pos, initial_yaw)
+    if SHOW_PLOTS:
+        ax = get_base_plot(initial_pos, initial_yaw)
 
     width = config['zig_zag']['width']
     length = config['zig_zag']['length']
@@ -120,8 +123,8 @@ def generate_zig_zig_sets(initial_pos, initial_yaw, config, start_motion=None):
             pnt[2] + offset.z, config['max_forward_speed'])
 
         wp_set.add_waypoint(waypoint)
-
-    add_waypoints_to_plot(ax, wp_set)
+    if SHOW_PLOTS:
+        add_waypoints_to_plot(ax, wp_set)
     sets.append(wp_set)
 
     wp_set = WaypointSet()
@@ -141,15 +144,17 @@ def generate_zig_zig_sets(initial_pos, initial_yaw, config, start_motion=None):
             pnt[1] + offset.y,
             pnt[2] + offset.z, config['max_forward_speed'])
         wp_set.add_waypoint(waypoint)
-
-    add_waypoints_to_plot(ax, wp_set)
+    if SHOW_PLOTS:
+        add_waypoints_to_plot(ax, wp_set)
     sets.append(wp_set)
 
     return sets
 
+
 def generate_straight_line_sets(initial_pos, initial_yaw, config, start_motion=None):
     center_angle = initial_yaw
-    ax = get_base_plot(initial_pos, initial_yaw)
+    if SHOW_PLOTS:
+        ax = get_base_plot(initial_pos, initial_yaw)
 
     rot = lambda a: np.array([
         [np.cos(a), -np.sin(a), 0],
@@ -184,13 +189,16 @@ def generate_straight_line_sets(initial_pos, initial_yaw, config, start_motion=N
             wp_set.add_waypoint(waypoint_target)
 
         sets += [wp_set]
-        add_waypoints_to_plot(ax, wp_set)
+        if SHOW_PLOTS:
+            add_waypoints_to_plot(ax, wp_set)
 
     return sets
 
+
 def generate_curves_sets(initial_pos, initial_yaw, config, start_motion=None):
-    # Generating horizontal curves
-    ax = get_base_plot(initial_pos, initial_yaw)
+    '''Generating horizontal curves.'''
+    if SHOW_PLOTS:
+        ax = get_base_plot(initial_pos, initial_yaw)
 
     rot = lambda a: np.array([
         [np.cos(a), -np.sin(a), 0],
@@ -228,8 +236,8 @@ def generate_curves_sets(initial_pos, initial_yaw, config, start_motion=None):
                 config['curves']['radius'] * np.sin(a) + center[1],
                 center[2], config['max_forward_speed'])
             wp_set.add_waypoint(waypoint_target)
-
-        add_waypoints_to_plot(ax, wp_set)
+        if SHOW_PLOTS:
+            add_waypoints_to_plot(ax, wp_set)
         sets += [wp_set]
 
         # Creating curve to the left
@@ -245,8 +253,8 @@ def generate_curves_sets(initial_pos, initial_yaw, config, start_motion=None):
                 config['curves']['radius'] * np.sin(a) + center[1],
                 center[2], config['max_forward_speed'])
             wp_set.add_waypoint(waypoint_target)
-
-        add_waypoints_to_plot(ax, wp_set)
+        if SHOW_PLOTS:
+            add_waypoints_to_plot(ax, wp_set)
         sets += [wp_set]
 
     # Creating motion to climb and move forwards
@@ -264,8 +272,8 @@ def generate_curves_sets(initial_pos, initial_yaw, config, start_motion=None):
                 config['curves']['radius'] * np.cos(a) + center[2],
                 config['max_forward_speed'])
             wp_set.add_waypoint(waypoint_target)
-
-        add_waypoints_to_plot(ax, wp_set)
+        if SHOW_PLOTS:
+            add_waypoints_to_plot(ax, wp_set)
         sets += [wp_set]
 
         # Creating motion to climb and move upwards
@@ -282,8 +290,8 @@ def generate_curves_sets(initial_pos, initial_yaw, config, start_motion=None):
                 config['curves']['radius'] * np.cos(a) + center[2],
                 config['max_forward_speed'])
             wp_set.add_waypoint(waypoint_target)
-
-        add_waypoints_to_plot(ax, wp_set)
+        if SHOW_PLOTS:
+            add_waypoints_to_plot(ax, wp_set)
         sets += [wp_set]
 
         # Creating motion to dive and move forwards
@@ -300,8 +308,8 @@ def generate_curves_sets(initial_pos, initial_yaw, config, start_motion=None):
                 config['curves']['radius'] * np.cos(a) + center[2],
                 config['max_forward_speed'])
             wp_set.add_waypoint(waypoint_target)
-
-        add_waypoints_to_plot(ax, wp_set)
+        if SHOW_PLOTS:
+            add_waypoints_to_plot(ax, wp_set)
         sets += [wp_set]
 
         # Creating motion to dive and move downwards
@@ -318,11 +326,22 @@ def generate_curves_sets(initial_pos, initial_yaw, config, start_motion=None):
                 config['curves']['radius'] * np.cos(a) + center[2],
                 config['max_forward_speed'])
             wp_set.add_waypoint(waypoint_target)
-
-        add_waypoints_to_plot(ax, wp_set)
+        if SHOW_PLOTS:
+            add_waypoints_to_plot(ax, wp_set)
         sets += [wp_set]
 
     return sets
+
+
+def plot_final_path(waypoint_set, path):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    add_waypoints_to_plot(ax, waypoint_set)
+    ax.plot(
+        [pnt.pos[0] for pnt in path],
+        [pnt.pos[1] for pnt in path],
+        [pnt.pos[2] for pnt in path])
+
 
 def get_max_timeout(waypoint_set, interp_method):
     for gen in PathGenerator.get_all_generators():
@@ -330,20 +349,24 @@ def get_max_timeout(waypoint_set, interp_method):
             interpolator = gen
             interpolator.init_waypoints(waypoint_set)
             interpolator.init_interpolator()
+            plot_final_path(waypoint_set, interpolator.get_samples(1, 0.001))
             return interpolator.max_time - interpolator.start_time + 10
     return -1
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Generate files describing motion primitives")
+    parser = argparse.ArgumentParser(
+        description="Generate files describing motion primitives")
     parser.add_argument('--config_file', type=str)
     parser.add_argument('--output_dir', type=str)
     parser.add_argument('--task_template_file', type=str)
     parser.add_argument('--task_dir', type=str)
+    parser.add_argument('--show_plots', type=int, default=1)
 
     logger = logging.getLogger('generate_motion_primitives')
     out_hdlr = logging.StreamHandler(sys.stdout)
-    out_hdlr.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
+    out_hdlr.setFormatter(logging.Formatter(
+        '%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
     out_hdlr.setLevel(logging.INFO)
     logger.addHandler(out_hdlr)
     logger.setLevel(logging.INFO)
@@ -371,6 +394,9 @@ if __name__ == '__main__':
     # Read the robot's namespace
     namespace = config['namespace']
     logger.info('Robot namespace=%s' % namespace)
+
+    logger.info('Show plots?=' + str(args.show_plots))
+    SHOW_PLOTS = args.show_plots
 
     # Check if the vehicle if fully actuated
     is_fully_actuated = config['is_fully_actuated']
@@ -413,7 +439,13 @@ if __name__ == '__main__':
 
         if config['is_waypoint_based']:
             for i in range(len(waypoint_sets)):
-                t = get_max_timeout(waypoint_sets[i], config['straight_lines']['interpolator'])
+                wp_set = deepcopy(waypoint_sets[i])
+
+                wp = Waypoint(initial_pos[0], initial_pos[1], initial_pos[2],
+                    config['max_forward_speed'])
+                wp_set.add_waypoint(wp, add_to_beginning=True)
+
+                t = get_max_timeout(wp_set, config['straight_lines']['interpolator'])
                 timeouts.append(t)
 
                 filename = 'motion_%d.yml' % i
@@ -433,7 +465,13 @@ if __name__ == '__main__':
 
         if config['is_waypoint_based']:
             for i in range(len(waypoint_sets)):
-                t = get_max_timeout(waypoint_sets[i], config['curves']['interpolator'])
+                wp_set = deepcopy(waypoint_sets[i])
+
+                wp = Waypoint(initial_pos[0], initial_pos[1], initial_pos[2],
+                    config['max_forward_speed'])
+                wp_set.add_waypoint(wp, add_to_beginning=True)
+
+                t = get_max_timeout(wp_set, config['curves']['interpolator'])
                 timeouts.append(t)
 
                 filename = 'motion_%d.yml' % i
@@ -453,7 +491,13 @@ if __name__ == '__main__':
 
         if config['is_waypoint_based']:
             for i in range(len(waypoint_sets)):
-                t = get_max_timeout(waypoint_sets[i], config['zig_zag']['interpolator'])
+                wp_set = deepcopy(waypoint_sets[i])
+
+                wp = Waypoint(initial_pos[0], initial_pos[1], initial_pos[2],
+                    config['max_forward_speed'])
+                wp_set.add_waypoint(wp, add_to_beginning=True)
+
+                t = get_max_timeout(wp_set, config['zig_zag']['interpolator'])
                 timeouts.append(t)
 
                 filename = 'motion_%d.yml' % i
@@ -489,4 +533,6 @@ if __name__ == '__main__':
         logger.info('Task #%d stored=', i)
         print(task)
 
-    plt.show()
+    if SHOW_PLOTS:
+        logger.info('Showing plots')
+        plt.show()
