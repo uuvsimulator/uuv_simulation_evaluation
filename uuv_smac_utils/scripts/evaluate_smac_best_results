@@ -35,7 +35,7 @@ from uuv_smac_utils import OptConfiguration, start_simulation_pool, \
 import matplotlib
 if os.environ.get('DISPLAY', '') == '':
     print('No display found, using non-interactive Agg backend')
-    matplotlib.use('PDF')
+    matplotlib.use('Agg', force=True)
 else:
     print('Display found=', os.environ.get('DISPLAY', ''))
 import matplotlib.pyplot as plt
