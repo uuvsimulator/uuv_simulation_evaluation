@@ -38,7 +38,6 @@ if os.environ.get('DISPLAY', '') == '':
     matplotlib.use('Agg')
 else:
     print('Display found=', os.environ.get('DISPLAY', ''))
-    matplotlib.use('PDF')
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -117,8 +116,8 @@ def plot_trajectories(results, output_dir):
         ax = fig.gca(projection='3d')
 
         task_results = get_task_results(results, task)
-        print('Task=%s', task)
-        print('Results=%s', task_results)
+        print('Task=', task)
+        print('Results=', task_results)
 
         task_name = task_results[0]['task'].split('/')[-1]
         task_name = task_name.split('.')[0]
@@ -268,8 +267,8 @@ def plot_position_heading_error(results, output_dir):
     for task in opt_config.tasks:
         fig = plt.figure(figsize=(10, 6))
         task_results = get_task_results(results, task)
-        print('Task=%s', task)
-        print('Results=%s', task_results)
+        print('Task=', task)
+        print('Results=', task_results)
 
         task_name = task_results[0]['task'].split('/')[-1]
         task_name = task_name.split('.')[0]
@@ -403,7 +402,7 @@ if __name__ == '__main__':
     if smac_folder is None:
         raise Exception('No SMAC output folder found')
 
-    print('SMAC RESULTS FOLDER=%s', smac_folder)
+    print('SMAC RESULTS FOLDER=', smac_folder)
 
     for f in os.listdir(smac_folder):
         if f == 'traj_aclib2.json':
@@ -416,7 +415,7 @@ if __name__ == '__main__':
     if not os.path.isfile(smac_file):
         raise Exception('SMAC output file not found')
 
-    print('SMAC OUTPUT FILE=%s', smac_file)
+    print('SMAC OUTPUT FILE=', smac_file)
 
     if not os.path.isdir(args.output_dir):
         os.makedirs(args.output_dir)
