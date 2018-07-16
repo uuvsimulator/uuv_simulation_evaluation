@@ -14,11 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from __future__ import print_function
+import os
+import matplotlib
+if os.environ.get('DISPLAY', '') == '':
+    print('No display found, using non-interactive Agg backend')
+    matplotlib.use('Agg', force=True)
+else:
+    print('Display found=', os.environ.get('DISPLAY', ''))
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import argparse
 import roslib
 import rospy
 import json
-import os
 import shutil
 import sys
 import yaml
@@ -31,15 +39,6 @@ from uuv_bag_evaluation.metrics import KPI
 from uuv_cost_function import CostFunction
 from uuv_smac_utils import OptConfiguration, start_simulation_pool, \
     stop_simulation_pool, parse_smac_input
-
-import matplotlib
-if os.environ.get('DISPLAY', '') == '':
-    print('No display found, using non-interactive Agg backend')
-    matplotlib.use('Agg', force=True)
-else:
-    print('Display found=', os.environ.get('DISPLAY', ''))
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 roslib.load_manifest('uuv_smac_utils')
 
