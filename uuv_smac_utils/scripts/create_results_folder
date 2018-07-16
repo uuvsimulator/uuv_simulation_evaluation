@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import print_function
 import os
 import argparse
 import rospy
@@ -39,21 +40,21 @@ if __name__ == '__main__':
     assert os.path.isdir(args.output_dir), 'Invalid output directory, dir=' + str(args.output_dir)
     assert os.path.isdir(args.input_dir), 'Invalid input directory, dir=' + str(args.input_dir)
 
-    print 'Input folder = ' + args.input_dir
-    print 'Output folder = ' + args.output_dir
+    print('Input folder = ' + args.input_dir)
+    print('Output folder = ' + args.output_dir)
 
     smac_folders = list()
     other_files = list()
 
     for item in os.listdir(args.input_dir):
-        if ('.yml' in item or '.txt' in item or '.pcs' in item) and \
+        if ('.yml' in item or '.txt' in item or '.pcs' in item or '.md' in item) and \
            os.path.isfile(os.path.join(args.input_dir, item)):
             other_files.append(os.path.join(args.input_dir, item))
-            print 'File found = ' + os.path.join(args.input_dir, item)
-        if 'smac3-output' in item and os.path.isdir(os.path.join(args.input_dir, item)):
+            print('File found = ' + os.path.join(args.input_dir, item))
+        if ('smac3-output' in item or 'best_results' in item) and os.path.isdir(os.path.join(args.input_dir, item)):
             smac_folders.append(os.path.join(args.input_dir, item))
-            print 'SMAC output folder found = ' + smac_folders[-1]
-        
+            print('Folder found = ' + smac_folders[-1])
+
     assert len(smac_folders) > 0, 'No SMAC output folders found in directory ' + args.input_dir
 
     datestr = strftime("%Y-%m-%d_%H:%M:%S", gmtime())
@@ -66,18 +67,19 @@ if __name__ == '__main__':
                      iterations='<add max. number of iterations used>',
                      controller='<add name of the controller here>',
                      description='<add description here>')
+
+    results_folder = os.path.join(args.output_dir, results_folder_prefix)
+    assert not os.path.isdir(results_folder), 'Results folder already exists!'
+
+    os.makedirs(results_folder)
+    print('Results folder created = ' + results_folder)
+
+    for item in other_files:
+        shutil.copy(item, results_folder)
+
     for i in range(len(smac_folders)):
-        results_folder = os.path.join(args.output_dir, results_folder_prefix + '_' + str(i), 'smac_config')
-        assert not os.path.isdir(results_folder), 'Results folder already exists!'
-
-        os.makedirs(results_folder)
-        print 'Results folder created = ' + results_folder
-
-        for item in other_files:
-            shutil.copy(item, results_folder)
-
         shutil.copytree(smac_folders[i],
                         os.path.join(results_folder, os.path.basename(smac_folders[i])))
 
-        with open(os.path.join(args.output_dir, results_folder_prefix + '_' + str(i), 'info.yaml'), 'w') as info:
-            yaml.dump(info_file, info, default_flow_style=False)
+    with open(os.path.join(args.output_dir, results_folder_prefix, 'info.yaml'), 'w') as info:
+        yaml.dump(info_file, info, default_flow_style=False)
