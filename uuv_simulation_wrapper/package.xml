@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package>
   <name>uuv_simulation_wrapper</name>
-  <version>0.2.5</version>
+  <version>0.2.6</version>
   <description>A wrapper function to run a Gazebo simulation scenario from Python applications</description>
 
   <maintainer email="musa.marcusso@de.bosch.com">Musa Morena Marcusso Manhaes</maintainer>
