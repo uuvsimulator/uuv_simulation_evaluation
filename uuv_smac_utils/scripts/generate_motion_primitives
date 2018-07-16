@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import print_function
 import os
 import sys
 import logging
@@ -24,11 +25,19 @@ from pyquaternion import Quaternion
 import yaml
 from uuv_trajectory_generator.path_generator import PathGenerator
 from uuv_waypoints import WaypointSet, Waypoint
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import roslib
 import rospy
 roslib.load_manifest('uuv_simulation_evaluation')
+
+import matplotlib
+if os.environ.get('DISPLAY', '') == '':
+    print('No display found, using non-interactive Agg backend')
+    matplotlib.use('Agg')
+else:
+    print('Display found=', os.environ.get('DISPLAY', ''))
+
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 
 SHOW_PLOTS = False
