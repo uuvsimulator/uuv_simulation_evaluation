@@ -33,7 +33,12 @@ from uuv_smac_utils import OptConfiguration, start_simulation_pool, \
     stop_simulation_pool, parse_smac_input
 
 import matplotlib
-matplotlib.use('PDF')
+if os.environ.get('DISPLAY', '') == '':
+    print('No display found, using non-interactive Agg backend')
+    matplotlib.use('Agg')
+else:
+    print('Display found=', os.environ.get('DISPLAY', ''))
+    matplotlib.use('PDF')
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
