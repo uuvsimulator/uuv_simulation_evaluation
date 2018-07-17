@@ -2,8 +2,8 @@
 Changelog for package uuv_smac_utils
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2018-07-17)
+------------------
 * ADD sync_smac_files script to CMakeLists
   Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
 * ADD Script to synchronize SMAC output files in output directory
