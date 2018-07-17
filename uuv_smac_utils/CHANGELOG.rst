@@ -2,6 +2,22 @@
 Changelog for package uuv_smac_utils
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* ADD sync_smac_files script to CMakeLists
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* ADD Script to synchronize SMAC output files in output directory
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* SET Matplotlib backend as first command
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* ADD Force change matplotlib backend
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* FIX Set PDF backend when DISPLAY is not set
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* FIX Testing for display for matplotlib backend setting
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* Contributors: Musa Morena Marcusso Manhaes
+
 0.2.8 (2018-07-16)
 ------------------
 * ADD Test for DISPLAY variable for Docker runs
