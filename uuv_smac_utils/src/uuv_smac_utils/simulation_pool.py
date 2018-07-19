@@ -329,7 +329,7 @@ def start_simulation_pool(max_num_processes=None, tasks=None, log_filename=None,
         for i in failed_tasks:
             SIMULATION_LOGGER.warning('Renaming folder from failed task:')
             SIMULATION_LOGGER.warning('\t From: ' + output[i]['results_dir'])
-            SIMULATION_LOGGER.warning('\t To: failed_' + output[i]['results_dir'])
+            SIMULATION_LOGGER.warning('\t To: ' + os.path.join(failed_path, 'failed_' + failed_dir))
 
             if os.path.isdir(output[i]['results_dir']):
                 if not del_failed_tasks:
