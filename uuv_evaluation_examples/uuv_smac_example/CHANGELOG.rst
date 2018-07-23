@@ -2,6 +2,9 @@
 Changelog for package uuv_smac_example
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.3.2 (2018-07-23)
 ------------------
 
