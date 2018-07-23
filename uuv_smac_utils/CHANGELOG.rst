@@ -2,6 +2,14 @@
 Changelog for package uuv_smac_utils
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.3.2 (2018-07-23)
+------------------
+* SET Max. number of processes for SMAC evaluation to 1
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* FIX Failed path variable
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* Contributors: Musa Morena Marcusso Manhaes
+
 0.3.1 (2018-07-19)
 ------------------
 * FIX Log message for cases where a task fails
@@ -133,4 +141,4 @@ Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
   Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
 * ADD SMAC utils package
   Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
-* Contributors: Musa Morena Marcusso Manhaes, Musa Morena Marcusso Manhaes (CR/AEI)
+* Contributors: Musa Morena Marcusso Manhaes

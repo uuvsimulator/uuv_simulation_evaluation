@@ -69,7 +69,7 @@ def run_simulation(idx, smac_results, output_dir):
     opt_config.results_dir = sub_result_folder
 
     failed_tasks = list()
-    output, failed_tasks = start_simulation_pool(4,
+    output, failed_tasks = start_simulation_pool(1,
                                                  output_dir=sub_result_folder)
 
     time_offset = 0.0
