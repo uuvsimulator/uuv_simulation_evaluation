@@ -2,6 +2,12 @@
 Changelog for package uuv_smac_utils
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* RM Two MPS curve based motions
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* Contributors: Musa Morena Marcusso Manhaes
+
 0.3.3 (2018-07-23)
 ------------------
 * RM UUV_TERMINATE file before starting an evaluation of SMAC results

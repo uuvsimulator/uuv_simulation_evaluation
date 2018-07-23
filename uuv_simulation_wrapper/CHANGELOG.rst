@@ -2,6 +2,9 @@
 Changelog for package uuv_simulation_wrapper
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.3.3 (2018-07-23)
 ------------------
 
