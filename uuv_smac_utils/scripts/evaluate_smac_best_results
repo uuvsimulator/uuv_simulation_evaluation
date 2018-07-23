@@ -390,6 +390,12 @@ if __name__ == '__main__':
     # Parse input arguments
     args = parser.parse_args(rospy.myargv()[1:])
 
+    if os.path.isfile(os.path.join(args.input_dir, 'UUV_TERMINATE')):
+        print('Removing process termination file UUV_TERMINATE from input'
+              ' directory...')
+        os.remove(os.path.join(args.input_dir, 'UUV_TERMINATE'))
+        print('UUV_TERMINATE removed')
+
     GEN_PDF = args.generate_pdf
 
     smac_folder = None

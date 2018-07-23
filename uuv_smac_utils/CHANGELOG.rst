@@ -2,6 +2,12 @@
 Changelog for package uuv_smac_utils
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.3.3 (2018-07-23)
+------------------
+* RM UUV_TERMINATE file before starting an evaluation of SMAC results
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* Contributors: Musa Morena Marcusso Manhaes
+
 0.3.2 (2018-07-23)
 ------------------
 * SET Max. number of processes for SMAC evaluation to 1
