@@ -2,8 +2,8 @@
 Changelog for package uuv_smac_utils
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.4 (2018-07-23)
+------------------
 * RM Two MPS curve based motions
   Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
 * Contributors: Musa Morena Marcusso Manhaes
