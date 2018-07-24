@@ -69,7 +69,7 @@ def run_simulation(idx, smac_results, output_dir):
     opt_config.results_dir = sub_result_folder
 
     failed_tasks = list()
-    output, failed_tasks = start_simulation_pool(1,
+    output, failed_tasks = start_simulation_pool(2,
                                                  output_dir=sub_result_folder)
 
     time_offset = 0.0
@@ -590,6 +590,7 @@ if __name__ == '__main__':
         r_file.write('### Initial parameter set\n\n')
 
         task_results = get_task_results(result_folders, opt_config.tasks[0])
+
         with open(os.path.join(task_results[0]['results_dir'], 'params_0.yml')) as p_file:
             r_file.write('```yaml\n')
             for line in p_file:
@@ -604,15 +605,6 @@ if __name__ == '__main__':
                 r_file.write(str(params[k]).replace(']', '').replace('[', '').replace(' ', ''))
                 r_file.write(' ')
             r_file.write('`\n\n')
-
-        with open(os.path.join(args.output_dir, task_results[0]['results_dir'], 'computed_kpis.yaml')) as c_file:
-            kpis = yaml.load(c_file)
-
-            r_file.write('KPI | Value\n')
-            r_file.write('--- | ---\n')
-            for k in kpis:
-                r_file.write('{} | {}\n'.format(k, kpis[k]))
-            r_file.write('\n')
 
         r_file.write('### Optimal parameter set\n\n')
 
@@ -632,20 +624,16 @@ if __name__ == '__main__':
                 r_file.write(' ')
             r_file.write('`\n\n')
 
-        with open(os.path.join(args.output_dir, task_results[idx]['results_dir'], 'computed_kpis.yaml')) as c_file:
-            kpis = yaml.load(c_file)
-
-            r_file.write('KPI | Value\n')
-            r_file.write('--- | ---\n')
-            for k in kpis:
-                r_file.write('{} | {}\n'.format(k, kpis[k]))
-            r_file.write('\n')
-
         r_file.write('### Comparison\n\n')
 
         for task in sorted(os.listdir(os.path.join(args.output_dir, 'plots'))):
             if not os.path.isdir(os.path.join(args.output_dir, 'plots', task)):
                 continue
+
+            for t in opt_config.tasks:
+                if task in t:
+                    task_results = get_task_results(result_folders, t)
+                    break
 
             t = task.split('/')[-1]
             t = t.replace('.yml', '')
@@ -656,3 +644,72 @@ if __name__ == '__main__':
             r_file.write('![Error comparison]({}/plots/{}/error_comparison.png)\n\n'.format(args.output_dir, t))
             r_file.write('![Trajectories comparison]({}/plots/{}/trajectories_comparison.png)\n\n'.format(args.output_dir, t))
             r_file.write('\n\n')
+
+            r_file.write('#### Initial parameter set\n\n')
+
+            with open(os.path.join(args.output_dir, task_results[0]['results_dir'], 'computed_kpis.yaml')) as c_file:
+                kpis = yaml.load(c_file)
+
+                r_file.write('KPI | Value\n')
+                r_file.write('--- | ---\n')
+                for k in kpis:
+                    r_file.write('{} | {}\n'.format(k, kpis[k]))
+                r_file.write('\n')
+
+            with open(os.path.join(task_results[0]['results_dir'], 'smac_result.yaml')) as p_file:
+                r_file.write('**smac_result.yaml**\n\n')
+                r_file.write('```yaml\n')
+                for line in p_file:
+                    r_file.write(line)
+                r_file.write('```\n\n')
+
+            with open(os.path.join(task_results[0]['results_dir'], 'task.yml')) as p_file:
+                r_file.write('**task.yml**\n\n')
+                r_file.write('```yaml\n')
+                for line in p_file:
+                    r_file.write(line)
+                r_file.write('```\n\n')
+
+            for fp in os.listdir(task_results[0]['results_dir']):
+                if 'penalty_fcn' in fp and '.yaml' in fp:
+                    with open(os.path.join(task_results[0]['results_dir'], fp)) as p_file:
+                        r_file.write('**%s**\n\n' % fp)
+                        r_file.write('```yaml\n')
+                        for line in p_file:
+                            r_file.write(line)
+                        r_file.write('```\n\n')
+
+            r_file.write('#### Optimal parameter set\n\n')
+
+            idx = task_results.keys()[-1]
+            with open(os.path.join(args.output_dir, task_results[idx]['results_dir'], 'computed_kpis.yaml')) as c_file:
+                kpis = yaml.load(c_file)
+
+                r_file.write('KPI | Value\n')
+                r_file.write('--- | ---\n')
+                for k in kpis:
+                    r_file.write('{} | {}\n'.format(k, kpis[k]))
+                r_file.write('\n')
+
+            with open(os.path.join(task_results[idx]['results_dir'], 'smac_result.yaml')) as p_file:
+                r_file.write('**smac_result.yaml**\n\n')
+                r_file.write('```yaml\n')
+                for line in p_file:
+                    r_file.write(line)
+                r_file.write('```\n\n')
+
+            with open(os.path.join(task_results[idx]['results_dir'], 'task.yml')) as p_file:
+                r_file.write('**task.yml**\n\n')
+                r_file.write('```yaml\n')
+                for line in p_file:
+                    r_file.write(line)
+                r_file.write('```\n\n')
+
+            for fp in os.listdir(task_results[idx]['results_dir']):
+                if 'penalty_fcn' in fp and '.yaml' in fp:
+                    with open(os.path.join(task_results[idx]['results_dir'], fp)) as p_file:
+                        r_file.write('**%s**\n\n' % fp)
+                        r_file.write('```yaml\n')
+                        for line in p_file:
+                            r_file.write(line)
+                        r_file.write('```\n\n')
