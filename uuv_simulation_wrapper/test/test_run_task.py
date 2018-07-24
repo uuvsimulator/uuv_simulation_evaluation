@@ -74,7 +74,6 @@ class TestRunTask(unittest.TestCase):
         runner = SimulationRunner(PARAMS, OCEAN_WORLD_TASK, RESULTS_DIR, True)
         success = runner.run(PARAMS, timeout=2)
         self.assertFalse(success, 'Simulation runner must return False when the timeout is triggered, flag=' + str(success))
-        self.assertTrue(runner.process_timeout_triggered, 'Simulation runner did not set the flag process_timeout_triggered')
         del runner
 
     def test_batch_run_task(self):

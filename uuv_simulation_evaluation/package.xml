@@ -21,5 +21,6 @@
   <run_depend>uuv_trajectory_control</run_depend>
 
   <test_depend>rosunit</test_depend>
+  <test_depend>rostest</test_depend>
 
 </package>

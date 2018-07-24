@@ -22,3 +22,11 @@ catkin_install_python(PROGRAMS scripts/set_simulation_timer
 install(DIRECTORY launch
         DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
         PATTERN "*~" EXCLUDE)
+
+if(CATKIN_ENABLE_TESTING)
+  find_package(rostest)
+  foreach(T
+      test/test_run_task.test)
+     add_rostest(${T})
+  endforeach()
+endif()

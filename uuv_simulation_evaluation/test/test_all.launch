@@ -1,6 +1,0 @@
-<launch>
-    <test test-name="test_cost_function" pkg="uuv_simulation_evaluation" type="test_cost_function.py"/>
-    <test test-name="test_constraint" pkg="uuv_simulation_evaluation" type="test_constraint.py"/>
-    <test test-name="test_evaluate_trajectory" pkg="uuv_simulation_evaluation" type="test_evaluate_trajectory.py"/>
-    <test test-name="test_kpis" pkg="uuv_simulation_evaluation" type="test_kpis.py"/>
-</launch>
