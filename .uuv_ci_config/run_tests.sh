@@ -15,6 +15,12 @@
 # limitations under the License.
 
 cd $CATKIN_WORKSPACE
-source devel/setup.bash
-catkin run_tests
+/bin/bash -c "source devel/setup.bash"
+
+cd $CATKIN_WORKSPACE/src/uuv_simulation_evaluation/uuv_simulation_wrapper
+catkin run_tests --no-deps --this
+
+cd $CATKIN_WORKSPACE/src/uuv_simulation_evaluation/uuv_simulation_evaluation
+catkin run_tests --no-deps --this
+
 catkin_test_results

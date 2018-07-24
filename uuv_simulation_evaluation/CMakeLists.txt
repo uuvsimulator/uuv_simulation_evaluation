@@ -8,16 +8,12 @@ catkin_python_setup()
 catkin_package()
 
 catkin_install_python(PROGRAMS scripts/evaluate_bag
-                               scripts/run_best_worst_comparison                               
+                               scripts/run_best_worst_comparison
                       DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 if(CATKIN_ENABLE_TESTING)
   find_package(rostest)
-  foreach(T
-      test/test_all.launch
-      )
-     add_rostest(${T})
-  endforeach()
+  find_package(rosunit)
 
   foreach(UNIT_TESTS
     test/test_constraint.py
