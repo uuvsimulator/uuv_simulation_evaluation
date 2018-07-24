@@ -16,5 +16,11 @@
 
 cd $CATKIN_WORKSPACE
 source devel/setup.bash
-catkin run_tests
+
+roscd uuv_simulation_wrapper
+catkin run_tests --no-deps --this
+
+roscd uuv_simulation_evaluation
+catkin run_tests --no-deps --this
+
 catkin_test_results
