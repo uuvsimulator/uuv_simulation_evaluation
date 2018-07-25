@@ -95,12 +95,43 @@ class OptConfiguration(object):
         if 'cost_fcn' in self._opt_config:
             SIMULATION_LOGGER.info('Initializing cost function')
             self.cost_fcn = CostFunction()
-            self.cost_fcn.from_dict(self._opt_config['cost_fcn'])
+            if isinstance(self._opt_config['cost_fcn'], list):                
+                cf = self._opt_config['cost_fcn']
+                SIMULATION_LOGGER.info('Cost function imported from list')
+            elif isinstance(self._opt_config['cost_fcn'], str):
+                assert os.path.isfile(self._opt_config['cost_fcn']), 'Cost function file is invalid'
+                assert '.yml' in self._opt_config['cost_fcn'] or '.yaml' in self._opt_config['cost_fcn']
+
+                with open(self._opt_config['cost_fcn']) as cf_file:
+                    cf = yaml.load(cf_file)
+
+                SIMULATION_LOGGER.info(cf)
+
+                SIMULATION_LOGGER.info('Cost function loaded from file, filename=' + self._opt_config['cost_fcn'])
+            else:
+                SIMULATION_LOGGER.error('Invalid input cost function')
+                raise Exception('Invalid input cost function')
+
+            self.cost_fcn.from_dict(cf)
 
         if 'constraints' in self._opt_config:
             self.constraints = self._opt_config['constraints']
-            assert isinstance(self.constraints, list)
-            self.cost_fcn.add_constraints(self._opt_config['constraints'])
+            if isinstance(self.constraints, list):                
+                self.cost_fcn.add_constraints(self._opt_config['constraints'])
+                SIMULATION_LOGGER.info('Constraints imported from list')
+            elif isinstance(self._opt_config['constraints'], str):                
+                assert os.path.isfile(self._opt_config['constraints']), 'Constraint file is invalid'
+                assert '.yml' in self._opt_config['constraints'] or '.yaml' in self._opt_config['constraints']
+
+                with open(self._opt_config['constraints']) as c_file:
+                    constraints = yaml.load(c_file)
+
+                self.cost_fcn.add_constraints(constraints)
+                SIMULATION_LOGGER.info('Constraints loaded from file, filename=' + self._opt_config['constraints'])
+            else:
+                SIMULATION_LOGGER.error('Invalid input constraints list')
+                raise Exception('Invalid input constraints list')
+                
 
     @staticmethod
     def get_instance(filename=None):
