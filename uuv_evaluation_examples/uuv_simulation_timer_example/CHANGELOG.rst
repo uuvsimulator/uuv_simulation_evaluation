@@ -2,6 +2,9 @@
 Changelog for package uuv_simulation_timer_example
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.3.4 (2018-07-23)
 ------------------
 
