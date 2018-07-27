@@ -370,7 +370,7 @@ def start_simulation_pool(max_num_processes=None, tasks=None, log_filename=None,
     failed_tasks = list()
     for i in range(len(output)):
         if output[i]['status'] == SIM_CRASHED:
-            failed_tasks.append(i)
+            failed_tasks.append(output[i]['task'])
 
     if original_results_path is not None:
         opt_config.results_dir = original_results_path
