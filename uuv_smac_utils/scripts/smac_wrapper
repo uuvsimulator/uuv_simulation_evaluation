@@ -13,19 +13,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 import matplotlib
+if os.environ.get('DISPLAY', '') == '':
+    print('No display found, using non-interactive Agg backend')
+    matplotlib.use('Agg', force=True)
+else:
+    print('Display found=', os.environ.get('DISPLAY', ''))
 import signal
 import argparse
 import roslib
-import os
 import sys
+import numpy as np
 import logging
+import re
 import random
 from time import sleep
 from uuv_smac_utils import OptConfiguration, start_simulation_pool, \
     stop_simulation_pool
 
-matplotlib.use('Agg')
 roslib.load_manifest('uuv_smac_utils')
 
 OPT_CONFIG = OptConfiguration.get_instance('opt_config.yml')
@@ -99,36 +105,20 @@ if __name__ == '__main__':
     output, failed_tasks = start_simulation_pool()
     sleep(5)
 
-    cost = list()
-    sim_time = list()
-    tasks_status = list()
+    cost = dict()
+    sim_time = dict()
+    tasks_status = dict()
 
     total_cost = 0.0
     status = None
 
     try:
-        for item in output:
-            SMAC_WRAPPER_LOGGER.info(item['task'])
-            SMAC_WRAPPER_LOGGER.info(item)
-
-            if item['status'] == 'CRASHED':
-                continue
-
-            if status is None:
-                status = item['status']
-
-            cost.append(item['cost'])
-            sim_time.append(item['sim_time'])
-            tasks_status.append(item['status'])
-
-        repeat_count = 0
-        while len(failed_tasks) > 0 and repeat_count < 3:
-            SMAC_WRAPPER_LOGGER.info('Running failed tasks: %s' % str(failed_tasks))
-            output, failed_tasks = start_simulation_pool(1, failed_tasks)
-            sleep(5)
-
-            status = None
-            for item in output:
+        if len(failed_tasks) > 0:
+            status = 'CRASHED'
+            total_cost = 1e7
+        else:            
+            for i in range(len(output)):
+                item = output[i]
                 SMAC_WRAPPER_LOGGER.info(item['task'])
                 SMAC_WRAPPER_LOGGER.info(item)
 
@@ -138,23 +128,77 @@ if __name__ == '__main__':
                 if status is None:
                     status = item['status']
 
-                cost.append(item['cost'])
-                sim_time.append(item['sim_time'])
-                tasks_status.append(item['status'])
+                cost[item['task']] = item['cost']
+                sim_time[item['task']] = item['sim_time']
+                tasks_status[item['task']] = item['status']
+                
+            upper_limit = np.mean(cost.values()) + np.std(cost.values())
 
-            if len(failed_tasks) == 0:
-                break
-            repeat_count += 1
+            # Sometimes some simulations have a initialization issue that leads the systems
+            # to oscillate. In this case, rerun them one more time to avoid large variations
+            # on the cost function vector due to simulation implementation issues
 
-        if len(failed_tasks) == 0:
-            total_time = sum(sim_time)
-            total_cost = sum([cost[i] * sim_time[i] / total_time for i in range(len(cost))])
+            temp_cost = dict()
+            temp_sim_time = dict()
+            temp_tasks_status = dict()
+            for task in cost:
+                if cost[task] - upper_limit > 1000:                
+                    failed_tasks.append(task)
+                    SMAC_WRAPPER_LOGGER.warning('Cost of task {} is much higher than standard deviation'.format(task))
+                    SMAC_WRAPPER_LOGGER.warning('Scheduling task {} for a rerun, cost={}'.format(task, cost[task]))
+                else:
+                    temp_cost[task] = cost[task]
+                    temp_sim_time[task] = sim_time[task]
+                    temp_tasks_status[task] = tasks_status[task]
+
+            cost = temp_cost
+            sim_time = temp_sim_time
+            tasks_status = temp_tasks_status
+
+            if len(failed_tasks) > 0:
+                SMAC_WRAPPER_LOGGER.info('Rerunning tasks that cause large deviations')
+                SMAC_WRAPPER_LOGGER.info('Current task with status=SUCCESS')
+                for i in cost:
+                    SMAC_WRAPPER_LOGGER.info('\t%s - Cost=%.2f - Timeout=%.2f s' % (i, cost[i], sim_time[i]))
+                SMAC_WRAPPER_LOGGER.info('Tasks scheduled to be run again')
+                for item in failed_tasks:
+                    SMAC_WRAPPER_LOGGER.info('- ' + item)
+
+                rerun_output, rerun_failed_tasks = start_simulation_pool(1, failed_tasks)
+
+                if len(rerun_failed_tasks) > 0:
+                    SMAC_WRAPPER_LOGGER.error('Tasks crashed after rerun, setting the output status as CRASHED')
+                    SMAC_WRAPPER_LOGGER.error('Failed tasks=' + str(rerun_failed_tasks))
+                    status = 'CRASHED'
+                    total_cost = 1e7
+                else:
+                    SMAC_WRAPPER_LOGGER.info('Reruns finished successfully')
+                    for i in range(len(rerun_output)):
+                        item = rerun_output[i]
+                        SMAC_WRAPPER_LOGGER.info(item['task'])
+                        SMAC_WRAPPER_LOGGER.info(item)
+
+                        if item['status'] == 'CRASHED':
+                            continue
+
+                        if status is None:
+                            status = item['status']
+
+                        cost[item['task']] = item['cost']
+                        sim_time[item['task']] = item['sim_time']
+                        tasks_status[item['task']] = item['status']
+                    
+            
+            total_time = sum(sim_time.values())
+            total_cost = sum([cost[i] * sim_time[i] / total_time for i in cost])
             SMAC_WRAPPER_LOGGER.info('All costs: %.2f' % total_cost)
-            for i in range(len(cost)):
-                SMAC_WRAPPER_LOGGER.info('\t%d - Cost=%.2f - Timeout=%.2f s' % (i, cost[i], sim_time[i]))
-        else:
-            status = 'CRASHED'
-            total_cost = 1e7
+
+            atoi = lambda a: int(a) if a.isdigit() else a
+            natural_keys = lambda text: [atoi(c) for c in re.split('(\d+)', text)]            
+
+            for i in cost.keys().sort(key=natural_keys):
+                SMAC_WRAPPER_LOGGER.info('\t%s - Cost=%.2f - Timeout=%.2f s' % (i, cost[i], sim_time[i]))
+            
     except Exception as ex:
         template = "An exception of type {0} occurred. Arguments:\n{1!r}"
         message = template.format(type(ex).__name__, ex.args)

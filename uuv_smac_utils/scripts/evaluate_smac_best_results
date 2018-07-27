@@ -47,6 +47,7 @@ GEN_PDF = False
 
 
 def run_simulation(idx, smac_results, output_dir):
+    opt_config = OptConfiguration.get_instance()
     smac_result = json.loads(smac_results[idx])
     sub_result_folder = os.path.join(os.getcwd(), output_dir, str(idx))
 
@@ -80,6 +81,7 @@ def run_simulation(idx, smac_results, output_dir):
         sim_eval = Evaluation(item['recording_filename'],
                               item['results_dir'],
                               time_offset=time_offset)
+                              
         sim_eval.compute_kpis()
         if GEN_PDF:
             sim_eval.save_evaluation()
@@ -579,12 +581,13 @@ if __name__ == '__main__':
         if opt_config.constraints is not None:
             r_file.write('### Constraints\n\n')
 
-            for i in range(len(opt_config.constraints)):
-                c = opt_config.constraints[i]
+            for i in range(len(opt_config.cost_fcn.constraints)):
+                c = opt_config.cost_fcn.constraints[i]
                 r_file.write('Description | Value\n')
                 r_file.write('--- | ---\n')
-                for tag in c:
-                    r_file.write('`{}` | `{}`\n'.format(tag, c[tag]))
+                params = c.get_params()
+                for tag in params:                    
+                    r_file.write('`{}` | `{}`\n'.format(tag, params[tag]))
                 r_file.write('\n')
 
         r_file.write('### Initial parameter set\n\n')
