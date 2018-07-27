@@ -173,5 +173,5 @@ class ErrorSet(object):
                         e_pos_des = np.dot(frame.T, e_pos_inertial)
                         vec.append(e_pos_des[1])
             elif tag == 'quaternion':
-                vec = [e.rotq for e in self._bag.parsers['error'].error.points if e.t >= time_offset]
+                vec = [e.rotq[0:3] for e in self._bag.parsers['error'].error.points if e.t >= time_offset]
             return vec

@@ -14,6 +14,7 @@
 # limitations under the License.
 import os
 import yaml
+import re
 from uuv_cost_function import CostFunction
 from .utils import init_logger, parse_smac_input, SIMULATION_LOGGER
 
@@ -22,18 +23,22 @@ class OptConfiguration(object):
     CONFIG = None
 
 
-    def __init__(self, filename):
-        assert os.path.isfile(filename)
+    def __init__(self, input_data):
+        if isinstance(input_data, str):
+            assert os.path.isfile(input_data)
 
-        self.opt_config_filename = filename
-        with open(self.opt_config_filename, 'r') as opt_config_file:
-            self._opt_config = yaml.load(opt_config_file)
+            self.opt_config_filename = input_data
+            with open(self.opt_config_filename, 'r') as opt_config_file:
+                self._opt_config = yaml.load(opt_config_file)
+        elif isinstance(input_data, dict):
+            self._opt_config = input_data
 
         assert 'cost_fcn' in self._opt_config, 'Cost function configuration available'
-        assert 'input_map' in self._opt_config, 'Input parameter map is not available'
-        assert 'parameters' in self._opt_config, 'Parameter labels is not available'
-
-        self.parameters = self._opt_config['parameters']
+        
+        if 'parameters' in self._opt_config:
+            self.parameters = self._opt_config['parameters']
+        else:
+            self.parameters = None
 
         if 'max_num_processes' not in self._opt_config:
             self.max_num_processes = 2
@@ -63,6 +68,14 @@ class OptConfiguration(object):
         else:
             SIMULATION_LOGGER.info('Retrieving filename for task function=' + task)
             self.tasks = [task]
+
+        atoi = lambda a: int(a) if a.isdigit() else a
+        natural_keys = lambda text: [atoi(c) for c in re.split('(\d+)', text)]
+
+        self.tasks.sort(key=natural_keys)
+        SIMULATION_LOGGER.info('Task files=')
+        for task in self.tasks:
+            SIMULATION_LOGGER.info('\t - ' + task)
 
         self.results_dir = self._opt_config['output_dir']
         SIMULATION_LOGGER.info(
@@ -95,7 +108,7 @@ class OptConfiguration(object):
         if 'cost_fcn' in self._opt_config:
             SIMULATION_LOGGER.info('Initializing cost function')
             self.cost_fcn = CostFunction()
-            if isinstance(self._opt_config['cost_fcn'], list):                
+            if isinstance(self._opt_config['cost_fcn'], dict):                
                 cf = self._opt_config['cost_fcn']
                 SIMULATION_LOGGER.info('Cost function imported from list')
             elif isinstance(self._opt_config['cost_fcn'], str):
@@ -110,6 +123,7 @@ class OptConfiguration(object):
                 SIMULATION_LOGGER.info('Cost function loaded from file, filename=' + self._opt_config['cost_fcn'])
             else:
                 SIMULATION_LOGGER.error('Invalid input cost function')
+                print(self._opt_config['cost_fcn'])
                 raise Exception('Invalid input cost function')
 
             self.cost_fcn.from_dict(cf)
@@ -134,15 +148,16 @@ class OptConfiguration(object):
                 
 
     @staticmethod
-    def get_instance(filename=None):
-        if filename is None:
+    def get_instance(input_data=None):
+        if input_data is None:
             assert OptConfiguration.CONFIG is not None
             return OptConfiguration.CONFIG
         else:
-            OptConfiguration.CONFIG = OptConfiguration(filename)
+            OptConfiguration.CONFIG = OptConfiguration(input_data)
             return OptConfiguration.CONFIG
 
     def parse_input(self, args):
+        assert 'input_map' in self._opt_config, 'Input parameter map is not available'
         self.params = parse_smac_input(args, self._opt_config['input_map'])
 
     def print_params(self):
