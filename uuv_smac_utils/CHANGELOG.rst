@@ -2,6 +2,12 @@
 Changelog for package uuv_smac_utils
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* CHANGE Make input parameter map optional in opt. configuration class
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* Contributors: Musa Morena Marcusso Manhaes
+
 0.4.0 (2018-07-25)
 ------------------
 * ADD Option to add cost function and constraints from file
@@ -120,7 +126,6 @@ Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
 * ADD Option file parser for SMAC scenarios
   Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
 * Contributors: Musa Morena Marcusso Manhaes
-
 0.1.5 (2018-06-06)
 ------------------
 * ADD Circle motion primitive

@@ -2,6 +2,9 @@
 Changelog for package uuv_simulation_runner_example
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.4.0 (2018-07-25)
 ------------------
 
