@@ -126,6 +126,7 @@ class SimulationRunner(object):
         self._recording_filename = None
 
         self._process_timeout_triggered = False
+        self.processes_interrupted = False
 
         self._add_folder_timestamp = add_folder_timestamp
         # Output directory
@@ -173,6 +174,7 @@ class SimulationRunner(object):
 
     def signal_handler(self, signal, handler):
         self._logger.warning('SIGNAL RECEIVED=%d', int(signal))
+        self.processes_interrupted = True
         self.__del__()
 
     def _port_open(self, port):
@@ -343,6 +345,8 @@ class SimulationRunner(object):
                 self._logger.info('ROS bag: ' + self._recording_filename)
                 cmd = task['execute']['cmd'] + ' '
                 for param in task['execute']['params']:
+                    if param in self._params:
+                        continue
                     # Adding parameters to the command line string
                     cmd += param + ':='
                     if type(task['execute']['params'][param]) == bool:
@@ -368,6 +372,16 @@ class SimulationRunner(object):
                 cmd = cmd + 'bag_filename:=\"' + self._recording_filename + '\" '
 
                 for param in self._params:
+                    if 'timeout' in param:
+                        # Setting the process timeout
+                        if task['execute']['params'][param] > 0 and timeout is None:
+                            # Set the process timeout to 5 times the given simulation timeout
+                            self._simulation_timeout = task['execute']['params'][param]
+                            self._timeout = 5 * int(self._simulation_timeout)
+                            self._logger.info('Simulation timeout t=%.f s' % self._simulation_timeout)
+                        else:
+                            self._logger.error('Invalid timeout = %.f' % task['execute']['params'][param])
+                            
                     param_values = str(self._params[param])
                     param_values = param_values.replace('[', '')
                     param_values = param_values.replace(']', '')
