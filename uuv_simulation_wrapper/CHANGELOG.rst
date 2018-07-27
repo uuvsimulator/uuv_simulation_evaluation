@@ -2,8 +2,8 @@
 Changelog for package uuv_simulation_wrapper
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.4.1 (2018-07-27)
+------------------
 * ADD Check for duplicate input parameters for simulation run
   Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
 * CHANGE Use simulation pool for batch processing
