@@ -24,7 +24,7 @@ from uuv_trajectory_generator import TrajectoryGenerator, TrajectoryPoint
 try:
     plt.rc('text', usetex=True)
     plt.rc('font', family='sans-serif')
-except Exception, e:
+except Exception as e:
     print('Cannot use Latex configuration with matplotlib, message=', str(e))
 
 
@@ -76,7 +76,7 @@ class TrajectoryData(SimulationData):
             for topic, msg, time in bag.read_messages(self._topic_name['reference']):
                 self._recorded_data['desired'].add_trajectory_point_from_msg(msg)
             self._logger.info('%s=loaded' % self._topic_name['reference'])
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error trajectories from rosbag, message=' + str(e))
             self._recorded_data['desired'] = None
 
@@ -100,7 +100,7 @@ class TrajectoryData(SimulationData):
                 # Store sampled trajectory point
                 self._recorded_data['actual'].add_trajectory_point(point)
             self._logger.info('%s=loaded' % self._topic_name['odometry'])
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error retrieving odometry data from rosbag, message=' + str(e))
             self._recorded_data['actual'] = None
 
@@ -228,7 +228,7 @@ class TrajectoryData(SimulationData):
             plt.savefig(filename)
             plt.close(fig)
             del fig
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error while plotting 3D path plot, message=' + str(e))
             plt.close(fig)
             del fig
@@ -354,7 +354,7 @@ class TrajectoryData(SimulationData):
             plt.savefig(os.path.join(output_path, 'trajectories_pose.pdf'))
             plt.close(fig)
             del fig
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error plotting output pose vectors, error=' + str(e))
             plt.close(fig)
             del fig
@@ -427,7 +427,7 @@ class TrajectoryData(SimulationData):
             plt.savefig(os.path.join(output_path, 'trajectories_quat.pdf'))
             plt.close(fig)
             del fig
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error plotting output quaternion vectors, error=' + str(e))
             plt.close(fig)
             del fig
@@ -508,7 +508,7 @@ class TrajectoryData(SimulationData):
             plt.savefig(os.path.join(output_path, 'trajectories_vel.pdf'))
             plt.close(fig)
             del fig
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error plotting velocities, error=' + str(e))
             plt.close(fig)
             del fig

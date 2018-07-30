@@ -22,7 +22,7 @@ from simulation_data import SimulationData
 try:
     plt.rc('text', usetex=True)
     plt.rc('font', family='sans-serif')
-except Exception, e:
+except Exception as e:
     print('Cannot use Latex configuration with matplotlib, message=', str(e))
 
 class WrenchPerturbationData(SimulationData):
@@ -65,7 +65,7 @@ class WrenchPerturbationData(SimulationData):
                     self._recorded_data['torque'].append(
                         [msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z])
             self._logger.info('%s=loaded' % self._topic_name)
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error retrieving wrench perturbation data from rosbag, message=' + str(e))
             self._recorded_data['force'] = None
             self._recorded_data['torque'] = None
@@ -145,7 +145,7 @@ class WrenchPerturbationData(SimulationData):
             plt.tight_layout()
             plt.savefig(os.path.join(output_path, 'disturbance_wrenches.pdf'))
             plt.close(fig)
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error while plotting disturbance wrenches, message=' + str(e))
             plt.close(fig)
             del fig

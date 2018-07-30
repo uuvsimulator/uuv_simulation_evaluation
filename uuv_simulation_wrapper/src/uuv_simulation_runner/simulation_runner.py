@@ -183,8 +183,8 @@ class SimulationRunner(object):
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             return_code = sock.connect_ex(('', port))
             sock.close()
-        except Exception, exp:
-            print exp
+        except Exception as exp:
+            print(exp)
         return return_code == 0
 
     def _is_port_locked(self, port):
@@ -273,7 +273,7 @@ class SimulationRunner(object):
             else:
                 self._logger.warning('Process {} already '
                                      'terminated'.format(process.pid))
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error in on_terminate function, message=' + str(e))
 
     def _create_script_file(self, output_dir, cmd):
@@ -284,7 +284,7 @@ class SimulationRunner(object):
                 script_file.write('#!/usr/bin/env bash\n')
                 script_file.write(cmd)
             self._logger.info('Script file created=' + filename)
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error while creating script file, message=' + str(e))
 
     def remove_recording_dir(self):
@@ -424,7 +424,7 @@ class SimulationRunner(object):
                 else:
                     self._logger.info('Simulation finished with error')
                     result_ok = False
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error while running the simulation, message=' + str(e))
             result_ok = False
             self._kill_process()

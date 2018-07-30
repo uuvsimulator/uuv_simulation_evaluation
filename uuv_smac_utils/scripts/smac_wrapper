@@ -195,8 +195,8 @@ if __name__ == '__main__':
 
             atoi = lambda a: int(a) if a.isdigit() else a
             natural_keys = lambda text: [atoi(c) for c in re.split('(\d+)', text)]            
-
-            for i in cost.keys().sort(key=natural_keys):
+            
+            for i in sorted(cost.keys(), key=natural_keys):
                 SMAC_WRAPPER_LOGGER.info('\t%s - Cost=%.2f - Timeout=%.2f s' % (i, cost[i], sim_time[i]))
             
     except Exception as ex:

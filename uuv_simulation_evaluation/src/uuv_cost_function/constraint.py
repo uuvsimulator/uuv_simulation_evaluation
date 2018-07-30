@@ -54,7 +54,7 @@ class Constraint(object):
             with open(os.path.join(output_dir, '%s_%s_%d.yaml' % (self.tag, self.input_tag, int(random.random() % 100))), 'w') as cf_file:
                 yaml.dump(self.get_params(), cf_file, default_flow_style=False)
             return True
-        except Exception, e:
+        except Exception as e:
             print('Error while storing cost function configuration, message=', str(e))
             return False
 

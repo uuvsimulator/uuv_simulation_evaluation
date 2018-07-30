@@ -13,6 +13,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import print_function
+import matplotlib.pyplot as plt
+try:
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='sans-serif')
+except Exception as e:
+    print('Cannot use Latex configuration with matplotlib, message=' + str(e))
 
 import argparse
 import rospy
@@ -24,19 +31,12 @@ import numpy as np
 import yaml
 import logging
 import seaborn
-import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.ticker import StrMethodFormatter
 
 from uuv_bag_evaluation import Evaluation
 from uuv_bag_evaluation.metrics import KPI
 from uuv_cost_function import CostFunction
-
-try:
-    plt.rc('text', usetex=True)
-    plt.rc('font', family='sans-serif')
-except Exception, e:
-    print 'Cannot use Latex configuration with matplotlib, message=', str(e)
 
 roslib.load_manifest('uuv_simulation_evaluation')
 
@@ -100,7 +100,7 @@ def gen_evaluations(bags, output_dir, time_offset=0.05):
     """Generate evaluation instances for each ROS bag file in the bags array."""
     sim_evals = list()
     for bag in bags:
-        print '\tOPENING BAG: ', bag
+        print('\tOPENING BAG: ' + bag)
         sim_evals.append(Evaluation(bag, output_dir, time_offset=time_offset))
     return sim_evals
 
@@ -343,7 +343,7 @@ if __name__ == '__main__':
 
     logger.info('Processing the following folders')
     for d in args.input_dir:
-        print '\t - ', d
+        print('\t - ' + d)
 
     with open(args.config_file, 'r') as c_file:
         config_file = yaml.load(c_file)
@@ -444,7 +444,7 @@ if __name__ == '__main__':
 
         counter = 0
         for d, i in zip(args.input_dir, range(len(args.input_dir))):
-            print kpis
+            print(kpis)
             kpi[d] = [kpis[d][k][tag] for k in range(len(kpis[d]))]
             min_idx[d] = np.argmin(kpi[d])
             max_idx[d] = np.argmax(kpi[d])

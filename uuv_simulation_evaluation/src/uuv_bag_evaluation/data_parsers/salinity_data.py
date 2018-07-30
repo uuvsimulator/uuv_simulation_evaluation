@@ -60,7 +60,7 @@ class SalinityData(SimulationData):
                     if self._unit is None:
                         self._unit = msg.unit
             self._logger.info('%s=loaded' % self._topic_name)
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error reading salinity topic, message=' + str(e))
 
     def plot(self, output_dir):
@@ -98,7 +98,7 @@ class SalinityData(SimulationData):
             if len(self._time) == 0:
                 self._logger.error('No salinity information found')
                 return
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error while plotting salinity, message=' + str(e))
             plt.close(fig)
             del fig

@@ -59,7 +59,7 @@ class AUVCommandData(SimulationData):
                     self._recorded_data['torque'].append([msg.command.torque.x, msg.command.torque.y, msg.command.torque.z])
                     self._recorded_data['surge_speed'].append(float(msg.surge_speed))
             self._logger.info('%s=loaded' % self._topic_name)
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error reading AUV command input topic, message=' + str(e))
 
     def plot(self, output_dir):
@@ -171,7 +171,7 @@ class AUVCommandData(SimulationData):
             fig_tm.savefig(filename)
             plt.close(fig_tm)
             del fig_tm
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error plotting AUV command input command wrench, message=' + str(e))
             plt.close(fig_tm)
             del fig_tm

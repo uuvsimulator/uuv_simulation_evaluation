@@ -2,6 +2,12 @@
 Changelog for package uuv_simulation_wrapper
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.4.2 (2018-07-30)
+------------------
+* CHANGE Adapt code for Python 2 and 3 compatibility
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* Contributors: Musa Morena Marcusso Manhaes
+
 0.4.1 (2018-07-27)
 ------------------
 * ADD Check for duplicate input parameters for simulation run

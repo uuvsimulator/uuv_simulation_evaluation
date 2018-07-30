@@ -66,7 +66,7 @@ class ErrorData(SimulationData):
             for topic, msg, time in bag.read_messages(self._topic_name):
                 self._recorded_data['error'].add_trajectory_point_from_msg(msg)
             self._logger.info('%s=loaded' % self._topic_name)
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error retrieving error data from rosbag, message=' + str(e))
             self._recorded_data['error'] = None
 
@@ -126,7 +126,7 @@ class ErrorData(SimulationData):
             plt.savefig(os.path.join(output_path, 'errors_pose.pdf'))
             plt.close(fig)
             del fig
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error while plotting pose errors, message=' + str(e))
             plt.close(fig)
             del fig
@@ -181,13 +181,13 @@ class ErrorData(SimulationData):
             ax.set_ylabel('Heading error [rad]',
                           fontsize=self._plot_configs['error_dist']['label_fontsize'])
             ax.set_xlim(np.min(t), np.max(t))
-            ax.set_ylim(np.min(error) * 1.05, np.max(error) * 1.05)
+            ax.set_ylim(- np.pi, np.pi)
 
             plt.tight_layout()
             plt.savefig(os.path.join(output_path, 'error_pos_heading.pdf'))
             plt.close(fig)
             del fig
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error while plotting position and heading error plots, message=' + str(e))
             plt.close(fig)
             del fig
@@ -224,12 +224,12 @@ class ErrorData(SimulationData):
             ax.set_xlabel('Time [s]', fontsize=18)
             ax.set_ylabel('Error [rad]', fontsize=18)
             ax.set_xlim(np.min(t), np.max(t))
-
+            
             plt.tight_layout()
             plt.savefig(os.path.join(output_path, 'errors_pose.pdf'))
             plt.close(fig)
             del fig
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error while plotting pose errors, message=' + str(e))
             plt.close(fig)
             del fig
@@ -268,7 +268,7 @@ class ErrorData(SimulationData):
             plt.savefig(os.path.join(output_path, 'errors_vel.pdf'))
             plt.close(fig)
             del fig
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error while plotting velocity errors, message=' + str(e))
             plt.close(fig)
             del fig
@@ -297,7 +297,7 @@ class ErrorData(SimulationData):
             plt.savefig(os.path.join(output_path, 'errors_quat.pdf'))
             plt.close(fig)
             del fig
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error while plotting quaternion vector error, message=' + str(e))
             plt.close(fig)
             del fig
@@ -324,7 +324,7 @@ class ErrorData(SimulationData):
             plt.savefig(os.path.join(output_path, 'errors_cross_track.pdf'))
             plt.close(fig)
             del fig
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error while plotting cross-track error, message=' + str(e))
             plt.close(fig)
             del fig

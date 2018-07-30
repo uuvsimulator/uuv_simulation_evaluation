@@ -2,6 +2,20 @@
 Changelog for package uuv_smac_utils
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.4.2 (2018-07-30)
+------------------
+* CHANGE Adapt code for Python 2 and 3 compatibility
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* FIX Type error while reading cost dict output
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* FIX Storing constraint information to file
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* FIX Return task file name instead of index for failed tasks vector
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* ADD Test of the standard deviation amongst all scenarios to determine if a simulation has to be repeated
+  Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
+* Contributors: Musa Morena Marcusso Manhaes
+
 0.4.1 (2018-07-27)
 ------------------
 * CHANGE Make input parameter map optional in opt. configuration class
@@ -126,6 +140,7 @@ Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
 * ADD Option file parser for SMAC scenarios
   Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
 * Contributors: Musa Morena Marcusso Manhaes
+
 0.1.5 (2018-06-06)
 ------------------
 * ADD Circle motion primitive

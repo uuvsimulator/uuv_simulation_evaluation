@@ -64,7 +64,7 @@ class ThrusterData(SimulationData):
                         self._recorded_data[i]['thrust']['values'].append(float(msg.data))
                     if i in self._recorded_data:
                         self._logger.info('%s/%d/thrust=loaded' % (self._prefix, i))
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error retrieving thrust output from rosbag, message=' + str(e))
 
         try:
@@ -79,7 +79,7 @@ class ThrusterData(SimulationData):
                         self._recorded_data[i]['input']['values'].append(float(msg.data))
                     if i in self._recorded_data:
                         self._logger.info('%s/%d/input=loaded' % (self._prefix, i))
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error retrieving thruster input data from rosbag, message=' + str(e))
 
     @property
@@ -165,7 +165,7 @@ class ThrusterData(SimulationData):
             fig.savefig(filename)
             plt.close(fig)
             del fig
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error plotting individual thruster outputs, message=' + str(e))
             plt.close(fig)
             del fig
@@ -207,7 +207,7 @@ class ThrusterData(SimulationData):
             fig_all.savefig(filename)
             plt.close(fig_all)
             del fig_all
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error plotting all thruster output, message=' + str(e))
             plt.close(fig_all)
             del fig_all
@@ -259,7 +259,7 @@ class ThrusterData(SimulationData):
             fig_avg.savefig(filename)
             plt.close(fig_avg)
             del fig_avg
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error plotting average thrust force output, message=' + str(e))
             plt.close(fig_avg)
             del fig_avg
@@ -294,7 +294,7 @@ class ThrusterData(SimulationData):
             fig_max.savefig(filename)
             plt.close(fig_max)
             del fig_max
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error plotting maximum thruster output, message=' + str(e))
             plt.close(fig_max)
             del fig_max
@@ -344,7 +344,7 @@ class ThrusterData(SimulationData):
             fig_in.savefig(filename)
             plt.close(fig_in)
             del fig_in
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error plotting thruster input command, message=' + str(e))
             plt.close(fig_in)
             del fig_in

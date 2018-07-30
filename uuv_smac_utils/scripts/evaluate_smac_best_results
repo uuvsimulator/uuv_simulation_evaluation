@@ -655,7 +655,7 @@ if __name__ == '__main__':
 
                 r_file.write('KPI | Value\n')
                 r_file.write('--- | ---\n')
-                for k in kpis:
+                for k in sorted(kpis):
                     r_file.write('{} | {}\n'.format(k, kpis[k]))
                 r_file.write('\n')
 
@@ -690,7 +690,7 @@ if __name__ == '__main__':
 
                 r_file.write('KPI | Value\n')
                 r_file.write('--- | ---\n')
-                for k in kpis:
+                for k in sorted(kpis):
                     r_file.write('{} | {}\n'.format(k, kpis[k]))
                 r_file.write('\n')
 

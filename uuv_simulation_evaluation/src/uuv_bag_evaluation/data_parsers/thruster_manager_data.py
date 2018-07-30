@@ -22,7 +22,7 @@ from simulation_data import SimulationData
 try:
     plt.rc('text', usetex=True)
     plt.rc('font', family='sans-serif')
-except Exception, e:
+except Exception as e:
     print('Cannot use Latex configuration with matplotlib, message=', str(e))
 
 class ThrusterManagerData(SimulationData):
@@ -64,7 +64,7 @@ class ThrusterManagerData(SimulationData):
                 self._recorded_data['force'].append([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z])
                 self._recorded_data['torque'].append([msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z])            
             self._logger.info('%s=loaded' % self._topic_name)
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error retrieving thruster manager input wrench data from rosbag, message=' + str(e))
             self._recorded_data['force'] = None
             self._recorded_data['torque'] = None
@@ -156,7 +156,7 @@ class ThrusterManagerData(SimulationData):
             fig_tm.savefig(filename)
             plt.close(fig_tm)
             del fig_tm
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error plotting thruster manager input command wrench, message=' + str(e))
             plt.close(fig_tm)
             del fig_tm
