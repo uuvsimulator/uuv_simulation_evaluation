@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from __future__ import print_function
 import os
 import sys
 import numpy as np
@@ -29,8 +29,8 @@ from mpl_toolkits.mplot3d import Axes3D
 try:
     plt.rc('text', usetex=True)
     plt.rc('font', family='sans-serif')
-except Exception, e:
-    print 'Cannot use Latex configuration with matplotlib, message=', str(e)
+except Exception as e:
+    print('Cannot use Latex configuration with matplotlib, message=' + str(e))
 
 class Evaluation(object):
     def __init__(self, filename, output_dir='.', time_offset=0.0):
@@ -106,7 +106,7 @@ class Evaluation(object):
             with open(filename, 'w') as cost_file:
                 yaml.dump(self._cost_fcn_terms, cost_file,
                           default_flow_style=False)
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error exporting cost function configuration, message=' + str(e))
 
     def load_cost_fcn(self, filename):
@@ -119,7 +119,7 @@ class Evaluation(object):
             for item in fcn:
                 self.add_cost_fcn_term(item, fcn[item])
                 self._logger.info('Cost function term (tag, weight): (%s, %.4f)' % (item, fcn[item]))
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error loading cost function configuration')
             self._logger.error(e)
             return False
@@ -193,12 +193,12 @@ class Evaluation(object):
             for i in range(len(self._kpis)):
                 try:
                     self._kpis[i]['value'] = self._kpis[i]['func'].compute()
-                except Exception, e:
+                except Exception as e:
                     self._logger.error('Error calculating KPI %s, message=%s' % (self._kpis[i]['func'].full_tag, str(e)))
 
     def print_kpis(self):
         for item in self._kpis:
-            print item['func'].full_tag, '= ', item['value']
+            print(item['func'].full_tag + '= ' + item['value'])
 
     def get_trajectory_coord(self, tag):
         return self.recording.get_trajectory_coord(tag)
@@ -231,7 +231,7 @@ class Evaluation(object):
                 item = kpi['func']
                 try:
                     value = float(item.kpi_value)
-                except Exception, e:
+                except Exception as e:
                     value = 0.0
                 kpis[item.full_tag] = value
                 kpi_labels[item.full_tag] = kpi['func'].label
@@ -242,5 +242,5 @@ class Evaluation(object):
             with open(os.path.join(output_path, 'kpi_labels.yaml'), 'w') as kpi_file:
                 yaml.dump(kpi_labels, kpi_file, default_flow_style=False)
             self._logger.info('KPI labels stored in <%s>' % os.path.join(output_path, 'kpi_labels.yaml'))
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error storing KPIs file, message=' + str(e))

@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from __future__ import print_function
 import numpy as np
 from .kpi import KPI
 
@@ -40,15 +40,15 @@ class MeanAbsThrust(KPI):
                     filt = np.nonzero(t >= self._time_offset)[0]
                     if filt.shape == self._input_values[i].shape:
                         self._input_values[i] = self._input_values[i][filt]
-                except Exception, e:
-                    print 'Error occurred while parsing vectors, msg=' + str(e)
+                except Exception as e:
+                    print('Error occurred while parsing vectors, msg=' + str(e))
                     self._input_values = None
         else:
             self._input_values = None
 
     def compute(self, input_values=None):
         if input_values is None and self._input_values is None:
-            print 'MeanAbsThrust - No input data to process'
+            print('MeanAbsThrust - No input data to process')
             return -1
 
         if self._input_values is None:

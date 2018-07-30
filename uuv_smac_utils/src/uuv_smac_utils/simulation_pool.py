@@ -136,7 +136,7 @@ def run_simulation(task):
 
         if not has_recording:
             raise Exception('No recording generated for task <%s>, file=%s' % (task, runner.recording_filename))
-    except Exception, e:
+    except Exception as e:
         SIMULATION_LOGGER.error('Error occurred in this iteration, '
                                 'setting simulation status to CRASHED for '
                                 'task <%s>, message=%s' % (task, str(e)))
@@ -221,7 +221,7 @@ def run_simulation(task):
             yaml.dump(output, smac_file, default_flow_style=False)
 
         sleep(random.random())
-    except Exception, e:
+    except Exception as e:
         SIMULATION_LOGGER.error(
             'Error occurred in this simulation evaluation, '
             'setting simulation status to CRASHED for task '
@@ -349,7 +349,7 @@ def start_simulation_pool(max_num_processes=None, tasks=None, log_filename=None,
                 if tasks is None:
                     task_list = opt_config.tasks
                 output[i] = THREAD_POOL.map(run_simulation, [output[i]['task']])[0]
-            except Exception, e:
+            except Exception as e:
                 SIMULATION_LOGGER.error('Error! Killing all processes, message=' + str(e))
                 if THREAD_POOL is not None:
                     THREAD_POOL.terminate()

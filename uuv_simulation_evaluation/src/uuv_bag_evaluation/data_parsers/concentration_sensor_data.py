@@ -71,7 +71,7 @@ class ConcentrationSensorData(SimulationData):
                     self._recorded_data['conc'].append(msg.concentration)
                     self._recorded_data['pos'].append([msg.position.x, msg.position.y, msg.position.z])
             self._logger.info('%s=loaded' % self._topic_name)
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error reading particle concentration topic, message=' + str(e))
 
     def plot(self, output_dir):
@@ -109,7 +109,7 @@ class ConcentrationSensorData(SimulationData):
             if len(self._time) == 0:
                 self._logger.error('No particle concentration information found')
                 return            
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error while plotting particle concentration, message=' + str(e))
             plt.close(fig)
             del fig
@@ -187,6 +187,6 @@ class ConcentrationSensorData(SimulationData):
             filename = os.path.join(output_path, 'particle_conc_3d.pdf')
             plt.savefig(filename)
             plt.close(fig)
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error plotting 3D particle concentration, message=' + str(e))
             plt.close(fig)

@@ -63,7 +63,7 @@ class FinsData(SimulationData):
                         self._recorded_data[i]['input']['values'].append(float(msg.data))
                     if i in self._recorded_data:
                         self._logger.info('%s/%d/input=loaded' % (self._prefix, i))
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error retrieving fin input data from rosbag, message=' + str(e))
 
         try:
@@ -78,7 +78,7 @@ class FinsData(SimulationData):
                         self._recorded_data[i]['output']['values'].append(float(msg.data))
                     if i in self._recorded_data:
                         self._logger.info('%s/%d/output=loaded' % (self._prefix, i))
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error retrieving fin output data from rosbag, message=' + str(e))
 
         try:
@@ -96,7 +96,7 @@ class FinsData(SimulationData):
                             [msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z])
                     if i in self._recorded_data:
                         self._logger.info('%s/%d/wrench_topic=loaded' % (self._prefix, i))
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error retrieving fin wrench data from rosbag, message=' + str(e))
 
     @property
@@ -149,7 +149,7 @@ class FinsData(SimulationData):
             fig_all.savefig(filename)
             plt.close(fig_all)
             del fig_all
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error plotting all fin output angles, message=' + str(e))
             plt.close(fig_all)
             del fig_all
@@ -195,7 +195,7 @@ class FinsData(SimulationData):
             fig_all.savefig(filename)
             plt.close(fig_all)
             del fig_all
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error plotting all fin input command angles, message=' + str(e))
             plt.close(fig_all)
             del fig_all

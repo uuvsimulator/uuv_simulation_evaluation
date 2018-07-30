@@ -57,7 +57,7 @@ class CurrentVelocityData(SimulationData):
                 self._recorded_data['vel'].append(
                     [msg.twist.linear.x,  msg.twist.linear.y,  msg.twist.linear.z])
             self._logger.info('%s=loaded' % self._topic_name)
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error retrieving current velocity data from rosbag, message=' + str(e))
 
     @property
@@ -111,7 +111,7 @@ class CurrentVelocityData(SimulationData):
             plt.savefig(os.path.join(output_path, 'current_velocity.pdf'))
             plt.close(fig)
             del fig
-        except Exception, e:
+        except Exception as e:
             self._logger.error('Error while plotting current velocity data, message=' + str(e))
             plt.close(fig)
             del fig

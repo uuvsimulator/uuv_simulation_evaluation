@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from __future__ import print_function
 import yaml
 import os
 import sys
@@ -52,7 +52,7 @@ class CostFunction(object):
             self.logger.info('\tInput tag=' + input_tag)
             self.logger.info('\tParameters=' + str(params))
             return True
-        except Exception, e:
+        except Exception as e:
             self.logger.error('Error adding constraint ' + fcn_name + ', message=' + str(e))
             return False
 
@@ -143,17 +143,17 @@ class CostFunction(object):
             for c in self.constraints:
                 c.save(output_dir)
             return True
-        except Exception, e:
+        except Exception as e:
             self.logger.error('Error while storing cost function configuration, message=' + str(e))
             return False
 
 if __name__ == '__main__':
     cf = CostFunction()
     for tag in cf.get_kpis():
-        print tag
+        print(tag)
 
     cf.set_weight('rmse_yaw', 10.0)
     cf.set_kpi('rmse_yaw', 10.0)
     cf.set_kpi('rmse_pitch', 12.0)
 
-    print cf.compute()
+    print(cf.compute())

@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from __future__ import print_function
 import numpy as np
 from uuv_bag_evaluation import Recording, ErrorSet
 
@@ -151,14 +151,14 @@ class KPI(object):
         try:
             it = iter(input_values)
         except TypeError:
-            print 'Input values are not iterable'
+            print('Input values are not iterable')
             return False
         return True
 
     def set_input_values(self, values):
         for tag in self._input_values:
             if tag not in values:
-                print 'Invalid input values set'
+                print('Invalid input values set')
                 return False
         self._input_values = values
         return True
