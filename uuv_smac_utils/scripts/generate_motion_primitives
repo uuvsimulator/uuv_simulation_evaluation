@@ -324,7 +324,7 @@ def get_max_timeout(waypoint_set, interp_method):
             interpolator.init_waypoints(waypoint_set)
             interpolator.init_interpolator()
             plot_final_path(waypoint_set, interpolator.get_samples(1, 0.001))
-            return interpolator.max_time - interpolator.start_time + 10
+            return interpolator.max_time
     return -1
 
 
@@ -415,10 +415,6 @@ if __name__ == '__main__':
             for i in range(len(waypoint_sets)):
                 wp_set = deepcopy(waypoint_sets[i])
 
-                wp = Waypoint(initial_pos[0], initial_pos[1], initial_pos[2],
-                    config['max_forward_speed'])
-                wp_set.add_waypoint(wp, add_to_beginning=True)
-
                 t = get_max_timeout(wp_set, config['straight_lines']['interpolator'])
                 timeouts.append(t)
 
@@ -439,11 +435,7 @@ if __name__ == '__main__':
 
         if config['is_waypoint_based']:
             for i in range(len(waypoint_sets)):
-                wp_set = deepcopy(waypoint_sets[i])
-
-                wp = Waypoint(initial_pos[0], initial_pos[1], initial_pos[2],
-                    config['max_forward_speed'])
-                wp_set.add_waypoint(wp, add_to_beginning=True)
+                wp_set = deepcopy(waypoint_sets[i])               
 
                 t = get_max_timeout(wp_set, config['curves']['interpolator'])
                 timeouts.append(t)
@@ -466,10 +458,6 @@ if __name__ == '__main__':
         if config['is_waypoint_based']:
             for i in range(len(waypoint_sets)):
                 wp_set = deepcopy(waypoint_sets[i])
-
-                wp = Waypoint(initial_pos[0], initial_pos[1], initial_pos[2],
-                    config['max_forward_speed'])
-                wp_set.add_waypoint(wp, add_to_beginning=True)
 
                 t = get_max_timeout(wp_set, config['zig_zag']['interpolator'])
                 timeouts.append(t)
