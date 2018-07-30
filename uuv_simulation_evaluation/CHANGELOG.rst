@@ -2,8 +2,8 @@
 Changelog for package uuv_simulation_evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.4.2 (2018-07-30)
+------------------
 * ADD Axis limits for heading error plot
   Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
 * CHANGE Adapt code for Python 2 and 3 compatibility

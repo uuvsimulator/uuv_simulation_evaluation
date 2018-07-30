@@ -2,8 +2,8 @@
 Changelog for package uuv_smac_utils
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.4.2 (2018-07-30)
+------------------
 * CHANGE Adapt code for Python 2 and 3 compatibility
   Signed-off-by: Musa Morena Marcusso Manhaes <Musa.Marcusso@de.bosch.com>
 * FIX Type error while reading cost dict output
