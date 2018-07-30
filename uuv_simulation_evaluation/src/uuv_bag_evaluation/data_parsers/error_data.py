@@ -181,7 +181,7 @@ class ErrorData(SimulationData):
             ax.set_ylabel('Heading error [rad]',
                           fontsize=self._plot_configs['error_dist']['label_fontsize'])
             ax.set_xlim(np.min(t), np.max(t))
-            ax.set_ylim(- 2 * np.pi, 2 * np.pi)
+            ax.set_ylim(- np.pi, np.pi)
 
             plt.tight_layout()
             plt.savefig(os.path.join(output_path, 'error_pos_heading.pdf'))
