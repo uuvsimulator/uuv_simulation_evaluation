@@ -136,7 +136,7 @@ class OptConfiguration(object):
             elif isinstance(self._opt_config['constraints'], str):                
                 assert os.path.isfile(self._opt_config['constraints']), 'Constraint file is invalid'
                 assert '.yml' in self._opt_config['constraints'] or '.yaml' in self._opt_config['constraints']
-
+    
                 with open(self._opt_config['constraints']) as c_file:
                     constraints = yaml.load(c_file)
 
