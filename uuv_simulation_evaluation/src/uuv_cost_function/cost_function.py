@@ -30,6 +30,17 @@ class CostFunction(object):
             out_hdlr.setLevel(logging.INFO)
             self.logger.addHandler(out_hdlr)
             self.logger.setLevel(logging.INFO)
+            
+            if not os.path.isdir('logs'):
+                os.makedirs('logs')
+            log_filename = os.path.join('logs', 'cost_function.log')
+
+            file_hdlr = logging.FileHandler(log_filename)
+            file_hdlr.setFormatter(logging.Formatter(
+                '%(asctime)s | %(levelname)s | %(module)s | %(message)s'))
+            file_hdlr.setLevel(logging.INFO)
+            self.logger.addHandler(file_hdlr)
+            self.logger.setLevel(logging.INFO)
 
         # Load default KPIs
         self.kpis = dict()
@@ -113,24 +124,31 @@ class CostFunction(object):
                 self.weights[tag] = weights[tag]
 
     def set_kpis(self, kpis):
+        self.logger.debug('start set_kpis')        
         assert type(kpis) == dict, 'Input KPIs must be listed in a dict'
         for tag in kpis:
-            if not self.is_kpi(tag):
-                self.logger.info('<' + tag + '> KPI tag does not exist')
-            else:
-                self.kpis[tag] = kpis[tag]
+            self.kpis[tag] = kpis[tag]
+        self.logger.debug('end set_kpis')        
 
     def compute(self):
         cost = np.sum([self.weights[tag] * self.kpis[tag] for tag in self.weights])
-        self.logger.info('Cost=' + str(cost))
+        self.logger.info('Cost (before constraints)=' + str(cost))
         if len(self.constraints) > 0:
             for c in self.constraints:
-                c_fcn = c.compute(self.kpis[c.input_tag])
                 self.logger.info('\tConstraint=' + c.__class__.__name__)
                 self.logger.info('\t\tTag=' + c.tag)
                 self.logger.info('\t\tInput tag=' + c.input_tag)
-                self.logger.info('\t\tValue=' + str(c_fcn))
+                
+                if c.input_tag not in self.kpis:
+                    self.logger.error('Error computing constraint <%s>: '
+                                      '%s tag not in KPIs list' % (c.tag, c.input_tag))
+                    self.logger.error(self.kpis.keys())
+                    raise Exception('%s tag not in KPIs list' % c.input_tag)
+                c_fcn = c.compute(self.kpis[c.input_tag])
+                
+                self.logger.info('\t\tValue=' + str(c_fcn))                                
                 cost += c_fcn
+        self.logger.info('Cost (after constraints)=' + str(cost))
         return cost
 
     def save(self, output_dir='.'):
