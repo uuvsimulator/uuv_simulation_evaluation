@@ -88,17 +88,10 @@ class CostFunction(object):
     def add_kpi(self, tag, value=0.0):
         if not self.is_kpi(tag):
             self.kpis[tag] = value
-            return True
-        else:
-            self.logger.info('<' + tag + '> KPI tag does not exist')
-            return False
-
+        return True
+        
     def set_kpi(self, tag, value):
-        if not self.is_kpi(tag):
-            self.logger.info('<' + tag + '> KPI tag does not exist')
-            return False
-        else:
-            self.kpis[tag] = value
+        self.kpis[tag] = value
 
     def set_weight(self, tag, weight):
         if not self.is_kpi(tag):
@@ -130,9 +123,14 @@ class CostFunction(object):
             self.kpis[tag] = kpis[tag]
         self.logger.debug('end set_kpis')        
 
-    def compute(self):
-        cost = np.sum([self.weights[tag] * self.kpis[tag] for tag in self.weights])
-        self.logger.info('Cost (before constraints)=' + str(cost))
+    def compute(self):        
+        cost = 0.0
+        self.logger.info('Calculating cost function=')
+        for tag in sorted(self.weights.keys()):
+            self.logger.info('\t {} - Weight: {} - KPI: {}'.format(tag, self.weights[tag], self.kpis[tag]))
+            self.logger.info('\t\t Result: {}'.format(self.weights[tag] * self.kpis[tag]))
+            cost += self.weights[tag] * self.kpis[tag]
+        self.logger.info('Cost (before constraints)=' + str(cost))        
         if len(self.constraints) > 0:
             for c in self.constraints:
                 self.logger.info('\tConstraint=' + c.__class__.__name__)

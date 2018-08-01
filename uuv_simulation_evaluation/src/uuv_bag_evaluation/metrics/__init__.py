@@ -31,3 +31,5 @@ from .max_error import MaxError
 from .mean_abs_error import MeanAbsoluteError
 from .euclidean_error import EuclideanError
 from .peak_to_peak import PeakToPeak
+from .rsd import RelativeStandardDeviation
+from .median_absolute_deviation import MedianAbsoluteDeviation
