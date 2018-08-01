@@ -2,6 +2,9 @@
 Changelog for package uuv_smac_utils
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 0.4.3 (2018-07-31)
 ------------------
 * FIX Missing KPIS error
