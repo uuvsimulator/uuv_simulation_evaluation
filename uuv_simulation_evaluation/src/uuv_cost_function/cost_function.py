@@ -123,8 +123,13 @@ class CostFunction(object):
             self.kpis[tag] = kpis[tag]
         self.logger.debug('end set_kpis')        
 
-    def compute(self):
-        cost = np.sum([self.weights[tag] * self.kpis[tag] for tag in self.weights])
+    def compute(self):        
+        cost = 0.0
+        self.logger.info('Calculating cost function=')
+        for tag in sorted(self.weights.keys()):
+            self.logger.info('\t {} - Weight: {} - KPI: {}'.format(tag, self.weights[tag], self.kpis[tag]))
+            self.logger.info('\t\t Result: {}'.format(self.weights[tag] * self.kpis[tag]))
+            cost += self.weights[tag] * self.kpis[tag]
         self.logger.info('Cost (before constraints)=' + str(cost))        
         if len(self.constraints) > 0:
             for c in self.constraints:
