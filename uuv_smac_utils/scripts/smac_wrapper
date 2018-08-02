@@ -135,10 +135,12 @@ if __name__ == '__main__':
             std_cost = np.std(cost.values())
             mean_cost = np.mean(cost.values())
             min_cost = np.min(cost.values())
+            cv = std_cost / max(np.abs(mean_cost), np.finfo(float).eps) 
 
             SMAC_WRAPPER_LOGGER.info('Cost min={}'.format(min_cost))
             SMAC_WRAPPER_LOGGER.info('Cost mean={}'.format(mean_cost))
             SMAC_WRAPPER_LOGGER.info('Cost standard deviation={}'.format(std_cost))
+            SMAC_WRAPPER_LOGGER.info('Cost coefficient of variation={}'.format(cv))
 
             # Sometimes some simulations have a initialization issue that leads the systems
             # to oscillate. In this case, rerun them one more time to avoid large variations
@@ -148,7 +150,7 @@ if __name__ == '__main__':
             temp_sim_time = dict()
             temp_tasks_status = dict()
             for task in cost:
-                if cost[task] - min_cost > 0.33 * std_cost:                
+                if cost[task] - min_cost > 0.33 * std_cost and cv > 1:                
                     failed_tasks.append(task)
                     SMAC_WRAPPER_LOGGER.warning('Cost of task {} is much higher than 0.33 * standard deviation'.format(task))
                     SMAC_WRAPPER_LOGGER.warning('Scheduling task {} for a rerun, cost={}'.format(task, cost[task]))
