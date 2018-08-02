@@ -338,8 +338,8 @@ def plot_position_heading_error(results, output_dir):
         ax.plot(error_t_ini, error_yaw_vec_ini, color='#E2742B', linewidth=3, label='Initial set')
         ax.plot(error_t_opt, error_yaw_vec_opt, color='#6600CC', linewidth=3, label='Optimal set')
 
-        error_max = np.max([np.max(error_yaw_vec_ini), np.max(error_yaw_vec_opt)])
-        error_min = np.min([np.min(error_yaw_vec_ini), np.min(error_yaw_vec_opt)])
+        error_max = np.pi
+        error_min = -np.pi
         if vec_cur is not None:
             v = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_cur])
             if v.max() > 0:
@@ -364,7 +364,7 @@ def plot_position_heading_error(results, output_dir):
         ax.grid(True)
         ax.tick_params(axis='both', labelsize=15)
         ax.set_xlim(np.min(error_t_ini), np.max(error_t_ini))
-        ax.set_ylim(error_min * 1.05, error_max * 1.05)
+        ax.set_ylim(-np.pi, np.pi)
 
         plt.tight_layout()
 
