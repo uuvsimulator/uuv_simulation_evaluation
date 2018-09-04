@@ -15,6 +15,7 @@
 import os
 import yaml
 import re
+import numpy
 from uuv_cost_function import CostFunction
 from .utils import init_logger, parse_smac_input, SIMULATION_LOGGER
 
@@ -59,15 +60,23 @@ class OptConfiguration(object):
 
         task = self._opt_config['task']
 
+        SIMULATION_LOGGER.info('Task(s) input=' + str(self._opt_config['task']))
+        SIMULATION_LOGGER.info(os.path.isdir(self._opt_config['task']))
         if isinstance(task, list):
             SIMULATION_LOGGER.info('Multiple tasks found:')
             for t in task:
                 SIMULATION_LOGGER.info('\t - %s' % t)
 
-            self.tasks = task
-        else:
-            SIMULATION_LOGGER.info('Retrieving filename for task function=' + task)
-            self.tasks = [task]
+            self.tasks = task        
+        else:            
+            if os.path.isfile(task):
+                SIMULATION_LOGGER.info('Retrieving filename for task function=' + task)
+                self.tasks = [task]
+            elif os.path.isdir(task):
+                self.tasks = list()
+                for f in os.listdir(task):
+                    if '.yml' in f or '.yaml' in f:
+                        self.tasks.append(os.path.join(task, f))
 
         atoi = lambda a: int(a) if a.isdigit() else a
         natural_keys = lambda text: [atoi(c) for c in re.split('(\d+)', text)]
@@ -105,6 +114,11 @@ class OptConfiguration(object):
 
         self.params = None
 
+        self.tasks_eval_fcn = 'numpy.mean(%s)'
+
+        if 'tasks_eval_fcn' in self._opt_config:
+            self.tasks_eval_fcn = self._opt_config['tasks_eval_fcn']
+
         if 'cost_fcn' in self._opt_config:
             SIMULATION_LOGGER.info('Initializing cost function')
             self.cost_fcn = CostFunction()
@@ -123,10 +137,15 @@ class OptConfiguration(object):
                 SIMULATION_LOGGER.info('Cost function loaded from file, filename=' + self._opt_config['cost_fcn'])
             else:
                 SIMULATION_LOGGER.error('Invalid input cost function')
-                print(self._opt_config['cost_fcn'])
+                SIMULATION_LOGGER.error(self._opt_config['cost_fcn'])
                 raise Exception('Invalid input cost function')
 
             self.cost_fcn.from_dict(cf)
+
+        if 'cost_fcn_norm' in self._opt_config:
+            self.cost_fcn.set_norm(self._opt_config['cost_fcn_norm'])
+            
+        SIMULATION_LOGGER.info('Cost function norm=' + str(self.cost_fcn.norm))
 
         if 'constraints' in self._opt_config:
             self.constraints = self._opt_config['constraints']
@@ -173,3 +192,13 @@ class OptConfiguration(object):
             return None
         self.cost_fcn.set_kpis(kpis)
         return self.cost_fcn.compute()
+
+    def compute_constraints(self, kpis):
+        if self.cost_fcn is None:
+            return None
+        self.cost_fcn.set_kpis(kpis)
+        return self.cost_fcn.compute_constraints()
+
+    def evaluate_tasks(self, task_costs):
+        assert isinstance(task_costs, list), 'Task costs must be given as a list'
+        return eval(self.tasks_eval_fcn % task_costs)
