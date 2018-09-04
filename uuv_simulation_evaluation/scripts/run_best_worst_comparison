@@ -15,12 +15,6 @@
 # limitations under the License.
 from __future__ import print_function
 import matplotlib.pyplot as plt
-try:
-    plt.rc('text', usetex=True)
-    plt.rc('font', family='sans-serif')
-except Exception as e:
-    print('Cannot use Latex configuration with matplotlib, message=' + str(e))
-
 import argparse
 import rospy
 import roslib
@@ -30,13 +24,25 @@ import shutil
 import numpy as np
 import yaml
 import logging
-import seaborn
+import pandas
+from copy import deepcopy
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.ticker import StrMethodFormatter
-
+from cycler import cycler
 from uuv_bag_evaluation import Evaluation
 from uuv_bag_evaluation.metrics import KPI
 from uuv_cost_function import CostFunction
+
+try:
+    import seaborn
+    plt.style.use('seaborn-ticks')
+    plt.rcParams['legend.frameon'] = True
+    
+    COLORS = seaborn.color_palette("muted", 20)    
+except:
+    COLORS = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
+
+plt.rcParams['axes.prop_cycle'] = cycler('color', COLORS)
 
 roslib.load_manifest('uuv_simulation_evaluation')
 
@@ -65,22 +71,19 @@ This script will generate comparative plots for the results within each root_fol
 provided.
 """
 
-colors = ['denim blue', 'pale red', 'medium green', 'tangerine']
-
-PLOT_CONFIGS = dict(plot=dict(figsize=[12, 6],
-                              label_fontsize=35,
-                              title_fontsize=35,
-                              tick_fontsize=32,
-                              linewidth=3,
-                              legend=dict(loc='upper right',
-                                          fontsize=16)),
-                    paths=dict(figsize=[12, 12],
-                               label_fontsize=35,
-                               title_fontsize=35,
-                               tick_fontsize=32,
-                               linewidth=3,
-                               legend=dict(loc='upper right',
-                                           fontsize=28)))
+PLOT_CONFIGS = dict(                                    
+    figsize=[12, 6],
+    linewidth=3,
+    label_fontsize=22,
+    title_fontsize=20,
+    tick_labelsize=20,
+    xlim=None,
+    ylim=None,
+    zlim=None,                                    
+    labelpad=10,
+    legend=dict(
+        loc='upper right',
+        fontsize=22))
 
 
 def gen_evaluation(output_dir, bag_filename, task_filename, time_offset=0.05):
@@ -107,8 +110,8 @@ def gen_evaluations(bags, output_dir, time_offset=0.05):
 
 def plot_disturbance_areas(fig, ax, sim_eval, min_y, max_y):
     """Add a colored area on the plot where current or wrench disturbances were active."""
-    t, cur_vel = sim_eval.get_current_velocity()
-    if len(t) > 0:
+    t, cur_vel = sim_eval.recording.parsers['current_velocity'].current_velocity
+    if cur_vel is not None:
         vec = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in cur_vel])
         if vec.max() > 0:
             vec[vec > 0] = 1.05
@@ -120,8 +123,8 @@ def plot_disturbance_areas(fig, ax, sim_eval, min_y, max_y):
                             label='Current activated')
             fig.canvas.draw()
 
-    t, force, torque = sim_eval.get_wrench_dist()
-    if len(t) > 0:
+    t, force, torque = sim_eval.recording.parsers['wrench_perturbation'].disturbances
+    if force is not None:        
         vec = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in force])
         if vec.max() > 0:
             vec[vec > 0] = 1.05
@@ -152,11 +155,18 @@ def plot_paths(output_dir, bags, labels, title, filename):
     """Generate path plots for the ROS bags provided"""
     assert len(labels) == len(bags), 'Number of labels and bags is different'
 
-    fig = plt.figure(figsize=(PLOT_CONFIGS['paths']['figsize'][0],
-                              PLOT_CONFIGS['paths']['figsize'][1]))
+    fig = plt.figure(figsize=(PLOT_CONFIGS['figsize'][0],
+                              2 * PLOT_CONFIGS['figsize'][1]))
     ax = fig.gca(projection='3d')
 
-    target_path = False
+    target_path_n = 0
+    target_path = None
+
+    min_x = None
+    max_x = None
+
+    min_y = None
+    max_y = None
 
     min_z = None
     max_z = None
@@ -164,49 +174,92 @@ def plot_paths(output_dir, bags, labels, title, filename):
     for i in range(len(bags)):
         sim_eval = Evaluation(bags[i], output_dir)
 
-        if not target_path:
-            traj = sim_eval.get_trajectory_coord('desired')
-            ax.plot(traj[0], traj[1], traj[2], 'k--',
-                    label=r'Reference path',
-                    linewidth=PLOT_CONFIGS['paths']['linewidth'])
-            fig.canvas.draw()
-            target_path = True
+        traj = sim_eval.recording.parsers['trajectory'].reference.points
+        if len(traj) > target_path_n:
+            target_path_n = len(traj)
+            target_path = sim_eval.recording.parsers['trajectory'].reference.points
 
-        traj = sim_eval.get_trajectory_coord('actual')
-        ax.plot(traj[0], traj[1], traj[2],
-                label=labels[i],
-                color=seaborn.xkcd_rgb[colors[i]],
-                linewidth=PLOT_CONFIGS['paths']['linewidth'])
+    ax.plot([d.x for d in target_path], 
+            [d.y for d in target_path], 
+            [d.z for d in target_path], 'k--',
+            label=r'Reference path',
+            linewidth=PLOT_CONFIGS['linewidth'] + 2)
+
+    fig.canvas.draw()    
+
+    for i in range(len(bags)):
+        sim_eval = Evaluation(bags[i], output_dir)        
+                
+        traj = sim_eval.recording.parsers['trajectory'].odometry.points
+        ax.plot([d.x for d in traj], 
+                [d.y for d in traj], 
+                [d.z for d in traj],
+                label=labels[i],                
+                linewidth=PLOT_CONFIGS['linewidth'])        
 
         if min_z is None:
-            min_z = np.min(traj[2])
-            max_z = np.max(traj[2])
+            min_x = np.min([d.x for d in traj])
+            max_x = np.max([d.x for d in traj])
+
+            min_y = np.min([d.y for d in traj])
+            max_y = np.max([d.y for d in traj])
+
+            min_z = np.min([d.z for d in traj])
+            max_z = np.max([d.z for d in traj])
         else:
-            min_z = min(np.min(traj[2]), min_z)
-            max_z = max(np.max(traj[2]), max_z)
-        fig.canvas.draw()
+            min_x = min(np.min([d.x for d in traj]), min_x)
+            max_x = max(np.max([d.x for d in traj]), max_x)
+            
+            min_y = min(np.min([d.y for d in traj]), min_y)
+            max_y = max(np.max([d.y for d in traj]), max_y)
+            
+            min_z = min(np.min([d.z for d in traj]), min_z)
+            max_z = max(np.max([d.z for d in traj]), max_z)
+        fig.canvas.draw()    
 
-    ax.set_xlabel(r'X [m]', fontsize=PLOT_CONFIGS['paths']['label_fontsize'], labelpad=40)
-    ax.set_ylabel(r'Y [m]', fontsize=PLOT_CONFIGS['paths']['label_fontsize'], labelpad=40)
-    ax.set_zlabel(r'Z [m]', fontsize=PLOT_CONFIGS['paths']['label_fontsize'], labelpad=40)
+    ax.set_xlabel(
+        r'X [m]', 
+        fontsize=PLOT_CONFIGS['label_fontsize'], 
+        labelpad=40)
+    ax.set_ylabel(
+        r'Y [m]', 
+        fontsize=PLOT_CONFIGS['label_fontsize'], 
+        labelpad=40)
+    ax.set_zlabel(
+        r'Z [m]', 
+        fontsize=PLOT_CONFIGS['label_fontsize'], 
+        labelpad=40)
 
-    ax.tick_params(axis='x', labelsize=PLOT_CONFIGS['paths']['tick_fontsize'], pad=10)
-    ax.tick_params(axis='y', labelsize=PLOT_CONFIGS['paths']['tick_fontsize'], pad=10)
-    ax.tick_params(axis='z', labelsize=PLOT_CONFIGS['paths']['tick_fontsize'], pad=10)
+    ax.tick_params(
+        axis='x', 
+        labelsize=PLOT_CONFIGS['tick_labelsize'], 
+        pad=10)
+    ax.tick_params(
+        axis='y', 
+        labelsize=PLOT_CONFIGS['tick_labelsize'], 
+        pad=10)
+    ax.tick_params(
+        axis='z', 
+        labelsize=PLOT_CONFIGS['tick_labelsize'], 
+        pad=10)
 
-    ax.xaxis.labelpad = 30
-    ax.yaxis.labelpad = 30
-    ax.zaxis.labelpad = 30
+    ax.xaxis.labelpad = 40
+    ax.yaxis.labelpad = 40
+    ax.zaxis.labelpad = 40
 
+    ax.set_xlim(min_x - 1, max_x + 1)
+    ax.set_ylim(min_y - 1, max_y + 1)
     ax.set_zlim(min_z - 1, max_z + 1)
 
-    ax.set_title(title, fontsize=PLOT_CONFIGS['paths']['title_fontsize'])
+    ax.set_title(title, fontsize=PLOT_CONFIGS['title_fontsize'])
 
-    ax.legend(loc=PLOT_CONFIGS['paths']['legend']['loc'],
-              fancybox=True,
-              framealpha=0.5,
-              fontsize=PLOT_CONFIGS['paths']['legend']['fontsize'])
-    ax.grid(True)
+    leg = ax.legend(
+        fancybox=True, 
+        framealpha=1,         
+        loc=PLOT_CONFIGS['legend']['loc'], 
+        fontsize=PLOT_CONFIGS['legend']['fontsize'])
+    leg.get_frame().set_facecolor('white')
+    ax.grid(axis='both', alpha=0.3, linewidth=0.8)
 
     # Invert axis if the pose of the vehicle is represented wrt NED
     # inertial reference frame
@@ -215,8 +268,9 @@ def plot_paths(output_dir, bags, labels, title, filename):
 
     ax.view_init(elev=15, azim=30)
 
-    fig.tight_layout()
+    plt.tight_layout()
     fig.savefig(os.path.join(output_dir, filename))
+    fig.savefig(os.path.join(output_dir, filename).replace('.pdf', '.png'))
     plt.close(fig)
 
 
@@ -228,12 +282,16 @@ def plot_comparison_pose_error(output_dir, bags, labels, title, filename, time_o
     axis_labels = ['Position [m]', 'Roll [rad]', 'Pitch [rad]', 'Yaw [rad]', 'Linear velocity [m/s]']
 
     min_value = 0.0
-    max_value = 0.0
+    max_value = 0.0    
 
+    data = None
+
+    colors = seaborn.hls_palette(len(bags))
     for e_tag, a_tag in zip(error_tags, axis_labels):
+        temp_data = dict()
 
-        fig = plt.figure(figsize=(PLOT_CONFIGS['plot']['figsize'][0],
-                                  PLOT_CONFIGS['plot']['figsize'][1]))
+        fig = plt.figure(figsize=(PLOT_CONFIGS['figsize'][0],
+                                  PLOT_CONFIGS['figsize'][1]))
         ax = fig.gca()
 
         min_t = None
@@ -242,10 +300,11 @@ def plot_comparison_pose_error(output_dir, bags, labels, title, filename, time_o
         min_value = 0.0
         max_value = 0.0
 
+        
         for i in range(len(bags)):
             sim_eval = Evaluation(bags[i], output_dir, time_offset=time_offset)
 
-            t = np.array(sim_eval.get_error_time())
+            t = np.array(sim_eval._error_set.get_time())
             t_offset_idx = np.argmin(np.abs(t - time_offset))
 
             if min_t is None:
@@ -255,17 +314,26 @@ def plot_comparison_pose_error(output_dir, bags, labels, title, filename, time_o
                 min_t = np.min([np.min(t), min_t])
                 max_t = np.min([np.max(t), max_t])
 
-            error = sim_eval.get_error_from_data(e_tag)
-
+            error = sim_eval._error_set.get_data(e_tag)
+            
             if type(error[0]) not in [float, np.float64]:
                 error = KPI.get_error(error)
 
+            temp_data['group'] = [labels[i] for _ in range(t.size)]
+            temp_data['error'] = error
+            temp_data['t'] = t
+
+            if data is None:
+                data = pandas.DataFrame.from_dict(temp_data)
+            else:
+                data = pandas.concat([data, pandas.DataFrame.from_dict(temp_data)], ignore_index=True)
+
             if e_tag in ['roll', 'pitch', 'yaw']:
-                min_value = - np.pi / 2
-                max_value = np.pi / 2
-            elif e_tag in ['position']:
-                min_value = 0.0
-                max_value = 5.5
+                min_value = - np.pi 
+                max_value = np.pi 
+            # elif e_tag in ['position']:
+            #     min_value = 0.0
+            #     max_value = 5.0
             else:
                 min_value = np.min([np.min(error), min_value])
                 max_value = np.max([np.max(error), max_value])
@@ -277,10 +345,9 @@ def plot_comparison_pose_error(output_dir, bags, labels, title, filename, time_o
             #     min_value = np.min([np.min(error), min_value])
             #     max_value = np.max([np.max(error), max_value])
 
-            ax.plot(sim_eval.get_error_time(),
+            ax.plot(sim_eval._error_set.get_time(),
                     error,
-                    linewidth=PLOT_CONFIGS['plot']['linewidth'],
-                    color=seaborn.xkcd_rgb[colors[i]],
+                    linewidth=PLOT_CONFIGS['linewidth'],
                     label=labels[i],
                     zorder=len(bags) - i)
             fig.canvas.draw()
@@ -290,14 +357,20 @@ def plot_comparison_pose_error(output_dir, bags, labels, title, filename, time_o
         plot_disturbance_areas(fig, ax, sim_eval, min_value, max_value)
         del sim_eval
 
-        ax.set_xlabel(r'Time [s]', fontsize=PLOT_CONFIGS['plot']['label_fontsize'], labelpad=6)
-        ax.set_ylabel(r'Error - ' + a_tag, fontsize=PLOT_CONFIGS['plot']['label_fontsize'], labelpad=8)
-        ax.legend(fancybox=True, framealpha=1.0, loc='upper right',
-                  fontsize=PLOT_CONFIGS['plot']['legend']['fontsize'])
-        ax.grid(True)
-        ax.tick_params(axis='both',
-                       labelsize=PLOT_CONFIGS['plot']['tick_fontsize'],
-                       pad=5)
+        ax.set_xlabel(r'Time [s]', fontsize=PLOT_CONFIGS['label_fontsize'], labelpad=6)
+        ax.set_ylabel(r'Error - ' + a_tag, fontsize=PLOT_CONFIGS['label_fontsize'], labelpad=8)
+        leg = ax.legend(
+            fancybox=True, 
+            framealpha=1, 
+            loc=PLOT_CONFIGS['legend']['loc'], 
+            fontsize=PLOT_CONFIGS['legend']['fontsize'])
+        leg.get_frame().set_facecolor('white')
+
+        ax.grid(axis='both', alpha=0.3, linewidth=0.8)
+
+        ax.tick_params(
+            axis='both',
+            labelsize=PLOT_CONFIGS['tick_labelsize'])
 
         ax.set_xlim(min_t, max_t)
         ax.set_ylim(min_value, max_value)
@@ -307,6 +380,64 @@ def plot_comparison_pose_error(output_dir, bags, labels, title, filename, time_o
 
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, e_tag + '_' + filename))
+        plt.savefig(os.path.join(output_dir, e_tag + '_' + filename).replace('.pdf', '.png'))
+        plt.close(fig)
+
+        del fig
+
+        fig = plt.figure(figsize=(PLOT_CONFIGS['figsize'][0],
+                                  len(labels)))
+        ax = fig.gca()
+        ax = seaborn.barplot(x='error', y='group', data=data)
+ 
+        ax.set_xlabel('Error - ' + a_tag, fontsize=PLOT_CONFIGS['label_fontsize'])
+        ax.set(ylabel='')
+        ax.grid(True)
+        ax.tick_params(axis='both',
+                       labelsize=PLOT_CONFIGS['tick_labelsize'],
+                       pad=5)
+                   
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, e_tag + '_bar_plot_' + filename))
+        plt.savefig(os.path.join(output_dir, e_tag + '_bar_plot_' + filename).replace('.pdf', '.png'))
+        plt.close(fig)
+
+        del fig
+
+        fig = plt.figure(figsize=(PLOT_CONFIGS['figsize'][0],
+                                  len(labels)))
+        ax = fig.gca()
+        ax = seaborn.boxplot(x='error', y='group', data=data, showfliers=False)
+ 
+        ax.set_xlabel('Error - ' + a_tag, fontsize=PLOT_CONFIGS['label_fontsize'])
+        ax.set(ylabel='')
+        ax.grid(True)
+        ax.tick_params(axis='both',
+                       labelsize=PLOT_CONFIGS['tick_labelsize'],
+                       pad=5)
+                   
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, e_tag + '_box_plot_' + filename))
+        plt.savefig(os.path.join(output_dir, e_tag + '_box_plot_' + filename).replace('.pdf', '.png'))
+        plt.close(fig)
+
+        del fig
+
+        fig = plt.figure(figsize=(PLOT_CONFIGS['figsize'][0],
+                                  len(labels)))
+        ax = fig.gca()
+        ax = seaborn.stripplot(x='error', y='group', data=data)
+ 
+        ax.set_xlabel('Error - ' + a_tag, fontsize=PLOT_CONFIGS['label_fontsize'])
+        ax.set(ylabel='')
+        ax.grid(True)
+        ax.tick_params(axis='both',
+                       labelsize=PLOT_CONFIGS['tick_labelsize'],
+                       pad=5)
+                   
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, e_tag + '_strip_plot_' + filename))
+        plt.savefig(os.path.join(output_dir, e_tag + '_strip_plot_' + filename).replace('.pdf', '.png'))
         plt.close(fig)
 
         del fig
@@ -350,10 +481,28 @@ if __name__ == '__main__':
     logger.info('Configuration file loaded <%s>' % args.config_file)
 
     if 'cost_fcn' in config_file:
-        cost_fcn = config_file['cost_fcn']
-        logger.info('Custom cost function provided:')
+        if isinstance(config_file['cost_fcn'], str):
+            assert os.path.isfile(config_file['cost_fcn'])
+            with open(config_file['cost_fcn']) as f:
+                cost_fcn = yaml.load(f)
+        elif isinstance(config_file['cost_fcn'], dict):
+            cost_fcn = config_file['cost_fcn']
+            logger.info('Custom cost function provided:')
         for tag in cost_fcn:
             logger.info('\t- %s: %.4f' % (tag, cost_fcn[tag]))
+    else:
+        cost_fcn = None
+
+    if 'constraints' in config_file:
+        if isinstance(config_file['constraints'], str):
+            assert os.path.isfile(config_file['constraints'])
+            with open(config_file['constraints']) as f:
+                constraints = yaml.load(f)
+        elif isinstance(config_file['constraints'], dict):
+            constraints = config_file['constraints']
+            logger.info('Custom constraints provided:')
+        for c in constraints:
+            logger.info('\t%s' % str(c))
     else:
         cost_fcn = None
 
@@ -388,35 +537,33 @@ if __name__ == '__main__':
                     logger.info('ROS bag not found')
                     continue
                 cur_kpi = None
-                try:
-                    if 'computed_kpis.yaml' not in os.listdir(p):
-                        logger.info('KPIs are not yet available')
-                        logger.info('Computing KPIs')
-                        sim_eval = Evaluation(os.path.join(p, 'recording.bag', time_offset=time_offset), p)
-                        sim_eval.save_kpis()
-                        del sim_eval
-                    for f in os.listdir(p):
-                        if 'computed_kpis' in f:
-                            kpi_filename = os.path.join(p, f)
+                
+                if 'computed_kpis.yaml' not in os.listdir(p):
+                    logger.info('KPIs are not yet available')
+                    logger.info('Computing KPIs')
+                    sim_eval = Evaluation(os.path.join(p, 'recording.bag', time_offset=time_offset), p)
+                    sim_eval.save_kpis()
+                    del sim_eval
+                for f in os.listdir(p):
+                    if 'computed_kpis' in f:
+                        kpi_filename = os.path.join(p, f)
 
-                            with open(kpi_filename, 'r') as k_file:
-                                cur_kpi = yaml.load(k_file)
+                        with open(kpi_filename, 'r') as k_file:
+                            cur_kpi = yaml.load(k_file)
 
-                            if cost_fcn is not None:
-                                cf = CostFunction()
-                                cf.from_dict(config_file['cost_fcn'])
-                                cf.set_kpis(cur_kpi)
-                                cost = cf.compute()
-                                tasks_cost_fcn[d].append(cost)
+                        if cost_fcn is not None:
+                            cf = CostFunction()
+                            cf.from_dict(cost_fcn)
+                            if 'constraints' in config_file:
+                                cf.add_constraints(constraints)
+                            cf.set_kpis(cur_kpi)
+                            cost = cf.compute()
+                            tasks_cost_fcn[d].append(cost)
 
-                            for tag in config_file['kpis']:
-                                if 'factor' in config_file['kpis'][tag]:
-                                    cur_kpi[tag] *= config_file['kpis'][tag]['factor']
-                except:
-                    logger.info('Error loading task %s, skipping' % item)
-                    cur_kpi = None
-                    temp_params = None
-
+                        for tag in config_file['kpis']:
+                            if 'factor' in config_file['kpis'][tag]:
+                                cur_kpi[tag] *= config_file['kpis'][tag]['factor']
+                
                 if cur_kpi is not None:
                     n_tasks += 1
                     kpis[d].append(cur_kpi)
@@ -431,6 +578,7 @@ if __name__ == '__main__':
 
     # Store the evaluations for the best and worst using the KPIs in
     # the configuration file
+    print(kpis)
     for tag in config_file['kpis']:
         kpi = dict()
         min_idx = dict()
@@ -444,8 +592,8 @@ if __name__ == '__main__':
 
         counter = 0
         for d, i in zip(args.input_dir, range(len(args.input_dir))):
-            print(kpis)
             kpi[d] = [kpis[d][k][tag] for k in range(len(kpis[d]))]
+            print(kpi[d])
             min_idx[d] = np.argmin(kpi[d])
             max_idx[d] = np.argmax(kpi[d])
 
@@ -521,7 +669,7 @@ if __name__ == '__main__':
                                    bags=kpi_bags,
                                    labels=kpi_labels,
                                    title=r'%s - %s [%s]' % (config_file['kpis'][tag]['title'], config_file['kpis'][tag]['var'], config_file['kpis'][tag]['unit']),
-                                   filename='error_comparison.pdf',
+                                   filename='best_cases_error_comparison.pdf',
                                    time_offset=time_offset)
 
         plot_paths(output_dir=os.path.join(output_dir, tag),
@@ -534,14 +682,14 @@ if __name__ == '__main__':
                                    bags=worst_kpi_bags,
                                    labels=worst_kpi_labels,
                                    title=r'%s - %s [%s]' % (config_file['kpis'][tag]['title'], config_file['kpis'][tag]['var'], config_file['kpis'][tag]['unit']),
-                                   filename='worst_case_error_comparison.pdf',
+                                   filename='worst_cases_error_comparison.pdf',
                                    time_offset=time_offset)
 
         plot_paths(output_dir=os.path.join(output_dir, tag),
                    bags=worst_kpi_bags,
                    labels=worst_kpi_labels,
                    title=r'',
-                   filename='worst_case_paths_comparison.pdf')
+                   filename='worst_cases_paths_comparison.pdf')
 
     if cost_fcn is not None:
         logger.info('Plotting cost function results')
@@ -629,37 +777,37 @@ if __name__ == '__main__':
                                        bags=bags,
                                        labels=labels,
                                        title='Position and heading errors',
-                                       filename='error_comparison_%s.pdf' % tag,
+                                       filename='best_cases_error_comparison_%s.pdf' % tag,
                                        time_offset=time_offset)
 
             plot_paths(output_dir=root_path,
                        bags=bags,
                        labels=labels,
                        title='',
-                       filename='paths_comparison_%s.pdf' % tag)
+                       filename='best_cases_paths_comparison_%s.pdf' % tag)
 
         plot_comparison_pose_error(output_dir=os.path.join(output_dir, tag),
                                    bags=cost_fcn_bags,
                                    labels=cost_fcn_labels,
                                    title='Position and heading errors',
-                                   filename='error_comparison.pdf',
+                                   filename='best_cases_error_comparison.pdf',
                                    time_offset=time_offset)
 
         plot_paths(output_dir=os.path.join(output_dir, tag),
                    bags=cost_fcn_bags,
                    labels=cost_fcn_labels,
                    title='',
-                   filename='paths_comparison.pdf')
+                   filename='best_cases_paths_comparison.pdf')
 
         plot_comparison_pose_error(output_dir=os.path.join(output_dir, tag),
                                    bags=worst_cost_fcn_bags,
                                    labels=worst_cost_fcn_labels,
                                    title='Position and heading errors',
-                                   filename='worst_case_error_comparison.pdf',
+                                   filename='worst_cases_error_comparison.pdf',
                                    time_offset=time_offset)
 
         plot_paths(output_dir=os.path.join(output_dir, tag),
                    bags=worst_cost_fcn_bags,
                    labels=worst_cost_fcn_labels,
                    title='',
-                   filename='worst_case_paths_comparison.pdf')
+                   filename='worst_cases_paths_comparison.pdf')
