@@ -77,7 +77,8 @@ def create_scenario_file(n):
         s_file.write('run_obj = quality\n')
         s_file.write('runcount_limit = %d\n' % n)
         s_file.write('deterministic = 1\n')
-        s_file.write('abort_on_first_run_crash = false')
+        s_file.write('abort_on_first_run_crash = false\n')
+        s_file.write('intensification_percentage = 0.5')
 
     return scenario_filename
 
@@ -92,7 +93,7 @@ class SMACProcess(threading.Thread):
         self.cmd = 'python3 ' + SMAC_SCRIPT
         self.cmd += ' --scenario_file ' + scenario_filename
         self.cmd += ' --verbose_level ' + mode
-
+        
         if is_parallel:
             self.cmd += ' --seed %d' % random.randrange(0, 1e5, 1)
             self.cmd += ' --shared_model True'
