@@ -17,7 +17,7 @@ import rospy
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from simulation_data import SimulationData
+from simulation_data import SimulationData, COLOR_RED, COLOR_GREEN, COLOR_BLUE
 
 try:
     plt.rc('text', usetex=True)
@@ -30,18 +30,6 @@ class WrenchPerturbationData(SimulationData):
 
     def __init__(self, bag):
         super(WrenchPerturbationData, self).__init__()
-
-        self._plot_configs = dict(wrenches=dict(
-                                    figsize=[12, 5],
-                                    linewidth=2,
-                                    label_fontsize=30,
-                                    xlim=None,
-                                    ylim=None,
-                                    zlim=None,
-                                    tick_labelsize=25,
-                                    labelpad=10,
-                                    legend=dict(loc='upper right',
-                                                fontsize=18)))
 
         for x in bag.get_type_and_topic_info():
             for k in x:
@@ -66,9 +54,35 @@ class WrenchPerturbationData(SimulationData):
                         [msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z])
             self._logger.info('%s=loaded' % self._topic_name)
         except Exception as e:
-            self._logger.error('Error retrieving wrench perturbation data from rosbag, message=' + str(e))
+            self._logger.warning('Error retrieving wrench perturbation data from rosbag, message=' + str(e))
             self._recorded_data['force'] = None
             self._recorded_data['torque'] = None
+
+    def get_as_dataframe(self, add_group_name=None):
+        try:
+            import pandas
+
+            if self._recorded_data['force'] is None or self._recorded_data['torque'] is None:
+                return None
+
+            data = dict()
+            data[self.LABEL + '_time'] = self._time
+            data[self.LABEL + '_force_x'] = [x[0] for x in self._recorded_data['force']]
+            data[self.LABEL + '_force_y'] = [x[1] for x in self._recorded_data['force']]
+            data[self.LABEL + '_force_z'] = [x[2] for x in self._recorded_data['force']]
+
+            data[self.LABEL + '_torque_x'] = [x[0] for x in self._recorded_data['torque']]
+            data[self.LABEL + '_torque_y'] = [x[1] for x in self._recorded_data['torque']]
+            data[self.LABEL + '_torque_z'] = [x[2] for x in self._recorded_data['torque']]
+
+            if add_group_name is not None:
+                data['group'] = [add_group_name for _ in range(len(self._time))]
+
+            return pandas.DataFrame(data)
+
+        except Exception as ex:
+            self._logger.error('Error while exporting as pandas.DataFrame, message=' + str(ex))
+            return None
 
     @property
     def disturbances(self):
@@ -79,29 +93,32 @@ class WrenchPerturbationData(SimulationData):
             self._logger.error('Invalid output directory, dir=' + str(output_dir))
             raise Exception('Invalid output directory')
 
-        fig = plt.figure(figsize=(self._plot_configs['wrenches']['figsize'][0],
-                                  self._plot_configs['wrenches']['figsize'][1]))
+        fig = self.get_figure()
         try:
             output_path = (self._output_dir if output_dir is None else output_dir)
 
             ax = fig.add_subplot(211)
-            ax.plot(self._time, [f[0] for f in self._recorded_data['force']], 'r', label=r'$F_X$',
-                    linewidth=self._plot_configs['wrenches']['linewidth'])
-            ax.plot(self._time, [f[1] for f in self._recorded_data['force']], 'g', label=r'$F_Y$',
-                    linewidth=self._plot_configs['wrenches']['linewidth'])
-            ax.plot(self._time, [f[2] for f in self._recorded_data['force']], 'b', label=r'$F_Z$',
-                    linewidth=self._plot_configs['wrenches']['linewidth'])
-            ax.set_xlabel('Time [s]',
-                          fontsize=self._plot_configs['wrenches']['label_fontsize'])
-            ax.set_ylabel('Force [N]',
-                          fontsize=self._plot_configs['wrenches']['label_fontsize'])
-            ax.legend(fancybox=True, framealpha=0.9,
-                      loc=self._plot_configs['wrenches']['legend']['loc'],
-                      fontsize=self._plot_configs['wrenches']['legend']['fontsize'])
-            ax.tick_params(axis='both',
-                           labelsize=self._plot_configs['wrenches']['tick_labelsize'])
-            ax.grid(True)
-
+            ax.plot(
+                self._time, 
+                [f[0] for f in self._recorded_data['force']], 
+                color=COLOR_RED, 
+                label=r'$F_X$',
+                linewidth=self._plot_configs['linewidth'])
+            
+            ax.plot(
+                self._time, 
+                [f[1] for f in self._recorded_data['force']], 
+                color=COLOR_GREEN, 
+                label=r'$F_Y$',
+                linewidth=self._plot_configs['linewidth'])
+            
+            ax.plot(
+                self._time, 
+                [f[2] for f in self._recorded_data['force']], 
+                color=COLOR_BLUE, 
+                label=r'$F_Z$',
+                linewidth=self._plot_configs['linewidth'])
+                        
             min_y = [np.min([v[0] for v in self._recorded_data['force']]),
                      np.min([v[1] for v in self._recorded_data['force']]),
                      np.min([v[2] for v in self._recorded_data['force']])]
@@ -113,23 +130,35 @@ class WrenchPerturbationData(SimulationData):
             ax.set_ylim([np.min(min_y) * 1.1, np.max(max_y) * 1.1])
             ax.set_xlim(np.min(self._time), np.max(self._time))
 
+            self.config_2dplot(
+                ax=ax,
+                title='',
+                xlabel=r'Time [s]',
+                ylabel=r'Force [N]',
+                legend_on=True)
+
             ax = fig.add_subplot(212)
-            ax.plot(self._time, [f[0] for f in self._recorded_data['torque']], 'r', label=r'$\tau_X$',
-                    linewidth=self._plot_configs['wrenches']['linewidth'])
-            ax.plot(self._time, [f[1] for f in self._recorded_data['torque']], 'g', label=r'$\tau_Y$',
-                    linewidth=self._plot_configs['wrenches']['linewidth'])
-            ax.plot(self._time, [f[2] for f in self._recorded_data['torque']], 'b', label=r'$\tau_Z$',
-                    linewidth=self._plot_configs['wrenches']['linewidth'])
-            ax.set_xlabel('Time [s]',
-                          fontsize=self._plot_configs['wrenches']['label_fontsize'])
-            ax.set_ylabel('Torque [Nm]',
-                          fontsize=self._plot_configs['wrenches']['label_fontsize'])
-            ax.legend(fancybox=True, framealpha=0.9,
-                      loc=self._plot_configs['wrenches']['legend']['loc'],
-                      fontsize=self._plot_configs['wrenches']['legend']['fontsize'])
-            ax.tick_params(axis='both',
-                           labelsize=self._plot_configs['wrenches']['tick_labelsize'])
-            ax.grid(True)
+            
+            ax.plot(
+                self._time, 
+                [f[0] for f in self._recorded_data['torque']], 
+                color=COLOR_RED, 
+                label=r'$\tau_X$',
+                linewidth=self._plot_configs['linewidth'])
+            
+            ax.plot(
+                self._time, 
+                [f[1] for f in self._recorded_data['torque']], 
+                color=COLOR_GREEN, 
+                label=r'$\tau_Y$',
+                linewidth=self._plot_configs['linewidth'])
+            
+            ax.plot(
+                self._time, 
+                [f[2] for f in self._recorded_data['torque']], 
+                color=COLOR_BLUE, 
+                label=r'$\tau_Z$',
+                linewidth=self._plot_configs['linewidth'])
 
             min_y = [np.min([v[0] for v in self._recorded_data['torque']]),
                      np.min([v[1] for v in self._recorded_data['torque']]),
@@ -141,6 +170,13 @@ class WrenchPerturbationData(SimulationData):
 
             ax.set_ylim([np.min(min_y) * 1.1, np.max(max_y) * 1.1])
             ax.set_xlim(np.min(self._time), np.max(self._time))
+
+            self.config_2dplot(
+                ax=ax,
+                title='',
+                xlabel=r'Time [s]',
+                ylabel=r'Torque [Nm]',
+                legend_on=True)
 
             plt.tight_layout()
             plt.savefig(os.path.join(output_path, 'disturbance_wrenches.pdf'))

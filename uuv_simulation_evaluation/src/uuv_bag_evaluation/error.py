@@ -175,3 +175,4 @@ class ErrorSet(object):
             elif tag == 'quaternion':
                 vec = [e.rotq[0:3] for e in self._bag.parsers['error'].error.points if e.t >= time_offset]
             return vec
+            

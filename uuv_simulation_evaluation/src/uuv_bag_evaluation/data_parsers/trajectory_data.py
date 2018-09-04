@@ -18,7 +18,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from simulation_data import SimulationData
+from simulation_data import SimulationData, COLOR_RED, COLOR_GREEN, COLOR_BLUE
 from uuv_trajectory_generator import TrajectoryGenerator, TrajectoryPoint
 
 try:
@@ -33,32 +33,6 @@ class TrajectoryData(SimulationData):
 
     def __init__(self, bag):
         super(TrajectoryData, self).__init__(message_type='nav_msgs/Odometry')
-
-        self._plot_configs = dict(paths=dict(
-                                    figsize=[12, 10],
-                                    linewidth=3,
-                                    label_fontsize=20,
-                                    xlim=None,
-                                    ylim=None,
-                                    zlim=None,
-                                    tick_labelsize=18,
-                                    labelpad=10,
-                                    legend=dict(
-                                        loc='upper right',
-                                        fontsize=18)),
-                                  trajectories=dict(
-                                    figsize=[12, 18],
-                                    linewidth=2,
-                                    label_fontsize=24,
-                                    title_fontsize=26,
-                                    xlim=None,
-                                    ylim=None,
-                                    zlim=None,
-                                    tick_labelsize=22,
-                                    labelpad=10,
-                                    legend=dict(
-                                        loc='upper right',
-                                        fontsize=20)))
 
         self._topic_name = dict()
         for x in bag.get_type_and_topic_info():
@@ -104,6 +78,67 @@ class TrajectoryData(SimulationData):
             self._logger.error('Error retrieving odometry data from rosbag, message=' + str(e))
             self._recorded_data['actual'] = None
 
+    def get_as_dataframe(self, add_group_name=None):
+        try:
+            import pandas
+
+            data = dict()
+
+            data[self.LABEL + '_ref_time'] = self._recorded_data['desired'].time            
+
+            for i, tag in zip(range(3), ['x', 'y', 'z']):                
+                data[self.LABEL + '_pos_ref_' + tag] = \
+                    [e.p[i] for e in self._recorded_data['desired'].points]
+
+                data[self.LABEL + '_lin_vel_ref_' + tag] = \
+                    [e.vel[i] for e in self._recorded_data['desired'].points]
+
+                data[self.LABEL + '_ang_vel_ref_' + tag] = \
+                    [e.vel[i + 3] for e in self._recorded_data['desired'].points]
+            
+            for i, tag in zip(range(3), ['roll', 'pitch', 'yaw']):
+                data[self.LABEL + '_rot_ref_' + tag] = \
+                    [e.rot[i] for e in self._recorded_data['desired'].points]            
+            
+            for i, tag in zip(range(4), ['x', 'y', 'z', 'w']):
+                data[self.LABEL + '_rotq_ref_' + tag] = \
+                    [e.rotq[i] for e in self._recorded_data['desired'].points]            
+            
+            if add_group_name is not None:
+                data['group'] = [add_group_name for _ in range(len(self._recorded_data['desired'].points))]
+
+            df_ref = pandas.DataFrame(data)
+
+            data = dict()
+
+            data[self.LABEL + '_actual_time'] = self._recorded_data['actual'].time
+            
+            for i, tag in zip(range(3), ['x', 'y', 'z']):                
+                data[self.LABEL + '_pos_actual_' + tag] = \
+                    [e.p[i] for e in self._recorded_data['actual'].points]
+                data[self.LABEL + '_lin_vel_actual_' + tag] = \
+                    [e.vel[i] for e in self._recorded_data['actual'].points]
+                data[self.LABEL + '_ang_vel_actual_' + tag] = \
+                    [e.vel[i + 3] for e in self._recorded_data['actual'].points]
+            
+            for i, tag in zip(range(3), ['roll', 'pitch', 'yaw']):
+                data[self.LABEL + '_rot_actual_' + tag] = \
+                    [e.rot[i] for e in self._recorded_data['actual'].points]
+            
+            for i, tag in zip(range(4), ['x', 'y', 'z', 'w']):
+                data[self.LABEL + '_rotq_actual_' + tag] = \
+                    [e.rotq[i] for e in self._recorded_data['actual'].points]
+            
+            if add_group_name is not None:
+                data['group'] = [add_group_name for _ in range(len(self._recorded_data['actual'].points))]
+
+            df_actual = pandas.DataFrame(data)
+
+            return dict(ref=df_ref, actual=df_actual)
+        except Exception as ex:
+            print('Error while exporting as pandas.DataFrame, message=' + str(ex))
+            return None
+
     @property
     def start_time(self):
         if self._recorded_data['desired'] is None:
@@ -131,28 +166,33 @@ class TrajectoryData(SimulationData):
             self._logger.error('Invalid output directory, dir=' + str(output_dir))
             raise Exception('Invalid output directory')
 
-        fig = plt.figure(figsize=(self._plot_configs['paths']['figsize'][0],
-                                  self._plot_configs['paths']['figsize'][1]))
         try:            
+            fig = self.get_figure(n_rows=2)
             ax = fig.gca(projection='3d')
 
             ax.plot([e.p[0] for e in self._recorded_data['desired'].points],
                     [e.p[1] for e in self._recorded_data['desired'].points],
                     [e.p[2] for e in self._recorded_data['desired'].points],
-                    'b--', label='Reference path',
-                    linewidth=self._plot_configs['paths']['linewidth'])
+                    color=COLOR_BLUE, 
+                    linestyle='dashed',
+                    label='Reference path',
+                    linewidth=self._plot_configs['linewidth'])
 
             ax.plot([e.p[0] for e in self._recorded_data['actual'].points],
                     [e.p[1] for e in self._recorded_data['actual'].points],
                     [e.p[2] for e in self._recorded_data['actual'].points],
-                    'g', label='Actual path',
-                    linewidth=self._plot_configs['paths']['linewidth'])
+                    color=COLOR_GREEN, 
+                    label='Actual path',
+                    linewidth=self._plot_configs['linewidth'])
 
             ax.plot([self._recorded_data['actual'].points[0].p[0]],
                     [self._recorded_data['actual'].points[0].p[1]],
                     [self._recorded_data['actual'].points[0].p[2]],
-                    'ro', label='Starting position',
-                    linewidth=self._plot_configs['paths']['linewidth'])
+                    color=COLOR_RED, 
+                    marker='o',
+                    linestyle='None',
+                    label='Starting position',
+                    linewidth=self._plot_configs['linewidth'])
 
             # Calculating the boundaries of the paths
             min_x = np.min([np.min([e.p[0] for e in self._recorded_data['desired'].points]),
@@ -174,45 +214,48 @@ class TrajectoryData(SimulationData):
                             np.max([e.p[2] for e in self._recorded_data['actual'].points])])
 
             ax.set_xlabel('X [m]',
-                          fontsize=self._plot_configs['paths']['label_fontsize'])
+                          fontsize=self._plot_configs['label_fontsize'])
             ax.set_ylabel('Y [m]',
-                          fontsize=self._plot_configs['paths']['label_fontsize'])
+                          fontsize=self._plot_configs['label_fontsize'])
             ax.set_zlabel('Z [m]',
-                          fontsize=self._plot_configs['paths']['label_fontsize'])
+                          fontsize=self._plot_configs['label_fontsize'])
 
-            if self._plot_configs['paths']['xlim'] is not None:
-                ax.set_xlim(self._plot_configs['paths']['xlim'][0],
-                            self._plot_configs['paths']['xlim'][1])
+            if self._plot_configs['xlim'] is not None:
+                ax.set_xlim(self._plot_configs['xlim'][0],
+                            self._plot_configs['xlim'][1])
             else:
                 ax.set_xlim(min_x - 1, max_x + 1)
 
-            if self._plot_configs['paths']['ylim'] is not None:
-                ax.set_ylim(self._plot_configs['paths']['ylim'][0],
-                            self._plot_configs['paths']['ylim'][1])
+            if self._plot_configs['ylim'] is not None:
+                ax.set_ylim(self._plot_configs['ylim'][0],
+                            self._plot_configs['ylim'][1])
             else:
                 ax.set_ylim(min_y - 1, max_y + 1)
 
-            if self._plot_configs['paths']['zlim'] is not None:
-                ax.set_zlim(self._plot_configs['paths']['zlim'][0],
-                            self._plot_configs['paths']['zlim'][1])
+            if self._plot_configs['zlim'] is not None:
+                ax.set_zlim(self._plot_configs['zlim'][0],
+                            self._plot_configs['zlim'][1])
             else:
                 ax.set_zlim(min_z - 1, max_z + 1)
 
             ax.tick_params(axis='x',
-                           labelsize=self._plot_configs['paths']['tick_labelsize'])
+                           labelsize=self._plot_configs['tick_labelsize'])
             ax.tick_params(axis='y',
-                           labelsize=self._plot_configs['paths']['tick_labelsize'])
+                           labelsize=self._plot_configs['tick_labelsize'])
             ax.tick_params(axis='z',
-                           labelsize=self._plot_configs['paths']['tick_labelsize'])
+                           labelsize=self._plot_configs['tick_labelsize'])
 
-            ax.xaxis.labelpad = self._plot_configs['paths']['labelpad']
-            ax.yaxis.labelpad = self._plot_configs['paths']['labelpad']
-            ax.zaxis.labelpad = self._plot_configs['paths']['labelpad']
+            ax.xaxis.labelpad = 30
+            ax.yaxis.labelpad = 30
+            ax.zaxis.labelpad = 30
 
-            ax.legend(loc=self._plot_configs['paths']['legend']['loc'],
-                      fancybox=True,
-                      framealpha=0.9,
-                      fontsize=self._plot_configs['paths']['legend']['fontsize'])
+            leg = ax.legend(
+                fancybox=True, 
+                framealpha=1, 
+                loc=self._plot_configs['legend']['loc'], 
+                fontsize=self._plot_configs['legend']['fontsize'])
+            leg.get_frame().set_facecolor('white')
+
             ax.grid(True)
             plt.tight_layout()
 
@@ -232,13 +275,12 @@ class TrajectoryData(SimulationData):
             self._logger.error('Error while plotting 3D path plot, message=' + str(e))
             plt.close(fig)
             del fig
-
-        fig = plt.figure(figsize=(self._plot_configs['trajectories']['figsize'][0],
-                                  self._plot_configs['trajectories']['figsize'][1]))
+        
         try:
             output_path = (self._output_dir if output_dir is None else output_dir)
                         
-            ax = fig.add_subplot(211)
+            fig = self.get_figure()        
+            ax = fig.gca()
 
             min_value = np.min([np.min([e.pos[0] for e in self._recorded_data['actual'].points]),
                                 np.min([e.pos[0] for e in self._recorded_data['desired'].points]),
@@ -256,49 +298,60 @@ class TrajectoryData(SimulationData):
 
         #     self.add_disturbance_activation_spans(ax, min_value, max_value)
 
-            ax.set_title('Position',
-                         fontsize=self._plot_configs['trajectories']['title_fontsize'])
             ax.plot(self._recorded_data['desired'].time, 
-                    [e.pos[0] for e in self._recorded_data['desired'].points], 'r--',
-                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    [e.pos[0] for e in self._recorded_data['desired'].points], 
+                    color=COLOR_RED,
+                    linestyle='dashed',
+                    linewidth=self._plot_configs['linewidth'],
                     label=r'$X_d$')
             ax.plot(self._recorded_data['desired'].time, 
-                    [e.pos[1] for e in self._recorded_data['desired'].points], 'g--',
-                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    [e.pos[1] for e in self._recorded_data['desired'].points], 
+                    color=COLOR_GREEN,
+                    linestyle='dashed',
+                    linewidth=self._plot_configs['linewidth'],
                     label=r'$Y_d$')
             ax.plot(self._recorded_data['desired'].time, 
-                    [e.pos[2] for e in self._recorded_data['desired'].points], 'b--',
-                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    [e.pos[2] for e in self._recorded_data['desired'].points], 
+                    color=COLOR_BLUE,
+                    linestyle='dashed',
+                    linewidth=self._plot_configs['linewidth'],
                     label=r'$Z_d$')
 
             ax.plot(self._recorded_data['actual'].time, 
-                    [e.pos[0] for e in self._recorded_data['actual'].points], 'r',
-                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    [e.pos[0] for e in self._recorded_data['actual'].points], 
+                    color=COLOR_RED,
+                    linewidth=self._plot_configs['linewidth'],
                     label=r'$X$')
             ax.plot(self._recorded_data['actual'].time, 
-                    [e.pos[1] for e in self._recorded_data['actual'].points], 'g',
-                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    [e.pos[1] for e in self._recorded_data['actual'].points], 
+                    color=COLOR_GREEN,
+                    linewidth=self._plot_configs['linewidth'],
                     label=r'$Y$')
             ax.plot(self._recorded_data['actual'].time, 
-                    [e.pos[2] for e in self._recorded_data['actual'].points], 'b',
-                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    [e.pos[2] for e in self._recorded_data['actual'].points], 
+                    color=COLOR_BLUE,
+                    linewidth=self._plot_configs['linewidth'],
                     label=r'$Z$')
 
-            ax.legend(fancybox=True,
-                      framealpha=0.7,
-                      loc=self._plot_configs['trajectories']['legend']['loc'],
-                      fontsize=self._plot_configs['trajectories']['legend']['fontsize'])
-            ax.grid(True)
-            ax.tick_params(axis='both',
-                           labelsize=self._plot_configs['trajectories']['tick_labelsize'])
-            ax.set_xlabel('Time [s]',
-                          fontsize=self._plot_configs['trajectories']['label_fontsize'])
-            ax.set_ylabel('Position [m]',
-                          fontsize=self._plot_configs['trajectories']['label_fontsize'])
-            ax.set_xlim(np.min(self._recorded_data['desired'].time), np.max(self._recorded_data['desired'].time))
+            ax.set_xlim(
+                np.min(self._recorded_data['desired'].time), 
+                np.max(self._recorded_data['desired'].time))
             ax.set_ylim(1.05 * min_value, 1.05 * max_value)
 
-            ax = fig.add_subplot(212)
+            self.config_2dplot(
+                ax=ax,
+                title='',
+                xlabel=r'Time [s]',
+                ylabel=r'Position [m]',
+                legend_on=True)              
+
+            plt.tight_layout()
+            plt.savefig(os.path.join(output_path, 'trajectories_position.pdf'))
+            plt.close(fig)
+            del fig
+
+            fig = self.get_figure()        
+            ax = fig.gca()
 
             min_value = np.min([np.min([e.rot[0] for e in self._recorded_data['actual'].points]),
                                 np.min([e.rot[0] for e in self._recorded_data['desired'].points]),
@@ -315,43 +368,56 @@ class TrajectoryData(SimulationData):
                                 np.max([e.rot[2] for e in self._recorded_data['desired'].points])])
 
         #     self.add_disturbance_activation_spans(ax, min_value, max_value)
-
-            ax.set_title('Orientation', fontsize=self._plot_configs['trajectories']['title_fontsize'])
+            
             ax.plot(self._recorded_data['desired'].time, 
-                    [e.rot[0] for e in self._recorded_data['desired'].points], 'r--',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\phi_d$')
+                    [e.rot[0] for e in self._recorded_data['desired'].points],                     
+                    color=COLOR_RED,
+                    linestyle='dashed',
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\phi_d$')
             ax.plot(self._recorded_data['desired'].time, 
-                    [e.rot[1] for e in self._recorded_data['desired'].points], 'g--',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\theta_d$')
+                    [e.rot[1] for e in self._recorded_data['desired'].points],                     
+                    color=COLOR_GREEN,
+                    linestyle='dashed',
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\theta_d$')
             ax.plot(self._recorded_data['desired'].time, 
-                    [e.rot[2] for e in self._recorded_data['desired'].points], 'b--',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\psi_d$')
+                    [e.rot[2] for e in self._recorded_data['desired'].points], 
+                    color=COLOR_BLUE,
+                    linestyle='dashed',
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\psi_d$')
 
             ax.plot(self._recorded_data['actual'].time, 
-                    [e.rot[0] for e in self._recorded_data['actual'].points], 'r',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\phi$')
+                    [e.rot[0] for e in self._recorded_data['actual'].points], 
+                    color=COLOR_RED,
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\phi$')
             ax.plot(self._recorded_data['actual'].time, 
-                    [e.rot[1] for e in self._recorded_data['actual'].points], 'g',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\theta$')
+                    [e.rot[1] for e in self._recorded_data['actual'].points], 
+                    color=COLOR_GREEN,
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\theta$')
             ax.plot(self._recorded_data['actual'].time, 
-                    [e.rot[2] for e in self._recorded_data['actual'].points], 'b',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\psi$')
+                    [e.rot[2] for e in self._recorded_data['actual'].points], 
+                    color=COLOR_BLUE,
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\psi$')
 
-            ax.legend(fancybox=True, framealpha=0.7,
-                      loc=self._plot_configs['trajectories']['legend']['loc'],
-                      fontsize=self._plot_configs['trajectories']['legend']['fontsize'])
-            ax.grid(True)
-            ax.tick_params(axis='both',
-                           labelsize=self._plot_configs['trajectories']['tick_labelsize'])
-            ax.set_xlabel('Time [s]',
-                          fontsize=self._plot_configs['trajectories']['label_fontsize'])
-            ax.set_ylabel('Angles [rad]',
-                          fontsize=self._plot_configs['trajectories']['label_fontsize'])
-            ax.set_xlim(np.min(self._recorded_data['desired'].time), np.max(self._recorded_data['desired'].time))
+            ax.set_xlim(
+                np.min(self._recorded_data['desired'].time), 
+                np.max(self._recorded_data['desired'].time))
             ax.set_ylim(1.05 * min_value, 1.05 * max_value)
 
+            self.config_2dplot(
+                ax=ax,
+                title='',
+                xlabel=r'Time [s]',
+                ylabel=r'Angles [rad]',
+                legend_on=True)   
+
             plt.tight_layout()
-            plt.savefig(os.path.join(output_path, 'trajectories_pose.pdf'))
+            plt.savefig(os.path.join(output_path, 'trajectories_orientation.pdf'))
             plt.close(fig)
             del fig
         except Exception as e:
@@ -359,52 +425,47 @@ class TrajectoryData(SimulationData):
             plt.close(fig)
             del fig
 
-        fig = plt.figure(figsize=(12, 8))
         try:
             ###################################################################
             # Plot quaternion trajectories
             ###################################################################            
-            ax = fig.add_subplot(111)
+            fig = self.get_figure()        
+            ax = fig.gca()
 
-            ax.set_title('Quaternion trajectories',
-                         fontsize=self._plot_configs['trajectories']['title_fontsize'])
             ax.plot(self._recorded_data['desired'].time, 
-                    [e.rotq[0] for e in self._recorded_data['desired'].points], 'r--',
-                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    [e.rotq[0] for e in self._recorded_data['desired'].points], 
+                    color=COLOR_RED,
+                    linestyle='dashed',
+                    linewidth=self._plot_configs['linewidth'],
                     label=r'$\epsilon_{x_d}$')
             ax.plot(self._recorded_data['desired'].time, 
-                    [e.rotq[1] for e in self._recorded_data['desired'].points], 'g--',
-                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    [e.rotq[1] for e in self._recorded_data['desired'].points], 
+                    color=COLOR_GREEN,
+                    linestyle='dashed',
+                    linewidth=self._plot_configs['linewidth'],
                     label=r'$\epsilon_{y_d}$')
             ax.plot(self._recorded_data['desired'].time, 
-                    [e.rotq[2] for e in self._recorded_data['desired'].points], 'b--',
-                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    [e.rotq[2] for e in self._recorded_data['desired'].points], 
+                    color=COLOR_BLUE,
+                    linestyle='dashed',
+                    linewidth=self._plot_configs['linewidth'],
                     label=r'$\epsilon_{z_d}$')
 
             ax.plot(self._recorded_data['actual'].time, 
-                    [e.rotq[0] for e in self._recorded_data['actual'].points], 'r',
-                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    [e.rotq[0] for e in self._recorded_data['actual'].points], 
+                    color=COLOR_RED,
+                    linewidth=self._plot_configs['linewidth'],
                     label=r'$\epsilon_{x}$')
             ax.plot(self._recorded_data['actual'].time, 
-                    [e.rotq[1] for e in self._recorded_data['actual'].points], 'g',
-                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    [e.rotq[1] for e in self._recorded_data['actual'].points], 
+                    color=COLOR_GREEN,
+                    linewidth=self._plot_configs['linewidth'],
                     label=r'$\epsilon_{y}$')
             ax.plot(self._recorded_data['actual'].time, 
-                    [e.rotq[2] for e in self._recorded_data['actual'].points], 'b',
-                    linewidth=self._plot_configs['trajectories']['linewidth'],
+                    [e.rotq[2] for e in self._recorded_data['actual'].points], 
+                    color=COLOR_BLUE,
+                    linewidth=self._plot_configs['linewidth'],
                     label=r'$\epsilon_{z}$')
-
-            ax.legend(fancybox=True, framealpha=0.7,
-                      loc=self._plot_configs['trajectories']['legend']['loc'],
-                      fontsize=self._plot_configs['trajectories']['legend']['fontsize'])
-            ax.grid(True)
-
-            ax.tick_params(axis='both',
-                           labelsize=self._plot_configs['trajectories']['tick_labelsize'])
-            ax.set_xlabel('Time [s]',
-                          fontsize=self._plot_configs['trajectories']['label_fontsize'])
-            ax.set_ylabel('Euler parameters',
-                          fontsize=self._plot_configs['trajectories']['label_fontsize'])
 
             min_value = np.min([np.min([e.rotq[0] for e in self._recorded_data['actual'].points]),
                                 np.min([e.rotq[0] for e in self._recorded_data['desired'].points]),
@@ -423,6 +484,13 @@ class TrajectoryData(SimulationData):
             ax.set_xlim(np.min(self._recorded_data['desired'].time), np.max(self._recorded_data['desired'].time))
             ax.set_ylim(1.05 * min_value, 1.05 * max_value)
 
+            self.config_2dplot(
+                ax=ax,
+                title='',
+                xlabel=r'Time [s]',
+                ylabel=r'Euler parameters',
+                legend_on=True)   
+
             plt.tight_layout()
             plt.savefig(os.path.join(output_path, 'trajectories_quat.pdf'))
             plt.close(fig)
@@ -432,80 +500,115 @@ class TrajectoryData(SimulationData):
             plt.close(fig)
             del fig
 
-        fig = plt.figure(figsize=(self._plot_configs['trajectories']['figsize'][0],
-                                  self._plot_configs['trajectories']['figsize'][1]))
         try:
             ###################################################################
             # Plot velocities
-            ###################################################################            
-            ax = fig.add_subplot(211)
-            ax.set_title('Linear velocity', fontsize=20)
+            ###################################################################    
+
+            fig = self.get_figure()        
+            ax = fig.gca()
             ax.plot(self._recorded_data['desired'].time, 
-                    [e.vel[0] for e in self._recorded_data['desired'].points], 'r--',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\dot{X}_d$')
+                    [e.vel[0] for e in self._recorded_data['desired'].points],                     
+                    color=COLOR_RED,
+                    linestyle='dashed',
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\dot{X}_d$')
             ax.plot(self._recorded_data['desired'].time, 
-                    [e.vel[1] for e in self._recorded_data['desired'].points], 'g--',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\dot{Y}_d$')
+                    [e.vel[1] for e in self._recorded_data['desired'].points], 
+                    color=COLOR_GREEN,
+                    linestyle='dashed',
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\dot{Y}_d$')
             ax.plot(self._recorded_data['desired'].time, 
-                    [e.vel[2] for e in self._recorded_data['desired'].points], 'b--',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\dot{Z}_d$')
+                    [e.vel[2] for e in self._recorded_data['desired'].points], 
+                    color=COLOR_BLUE,
+                    linestyle='dashed',
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\dot{Z}_d$')
 
             ax.plot(self._recorded_data['actual'].time, 
-                    [e.vel[0] for e in self._recorded_data['actual'].points], 'r',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\dot{X}$')
+                    [e.vel[0] for e in self._recorded_data['actual'].points], 
+                    color=COLOR_RED,
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\dot{X}$')
             ax.plot(self._recorded_data['actual'].time, 
-                    [e.vel[1] for e in self._recorded_data['actual'].points], 'g',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\dot{Y}$')
+                    [e.vel[1] for e in self._recorded_data['actual'].points], 
+                    color=COLOR_GREEN,
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\dot{Y}$')
             ax.plot(self._recorded_data['actual'].time, 
-                    [e.vel[2] for e in self._recorded_data['actual'].points], 'b',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\dot{Z}$')
-            ax.legend(fancybox=True, framealpha=0.9,
-                      loc=self._plot_configs['trajectories']['legend']['loc'],
-                      fontsize=self._plot_configs['trajectories']['legend']['fontsize'])
-            ax.grid(True)
-            ax.tick_params(axis='both',
-                           labelsize=self._plot_configs['trajectories']['tick_labelsize'])
-            ax.set_xlabel('Time [s]',
-                          fontsize=self._plot_configs['trajectories']['label_fontsize'])
-            ax.set_ylabel('Velocity [m/s]',
-                          fontsize=self._plot_configs['trajectories']['label_fontsize'])
-            ax.set_xlim(np.min(self._recorded_data['desired'].time), np.max(self._recorded_data['desired'].time))
+                    [e.vel[2] for e in self._recorded_data['actual'].points], 
+                    color=COLOR_BLUE,
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\dot{Z}$')
 
-            ax = fig.add_subplot(212)
-            ax.set_title('Angular velocity', fontsize=self._plot_configs['trajectories']['title_fontsize'])
-            ax.plot(self._recorded_data['desired'].time, 
-                    [e.vel[3] for e in self._recorded_data['desired'].points], 'r--',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\omega_{x_d}$')
-            ax.plot(self._recorded_data['desired'].time, 
-                    [e.vel[4] for e in self._recorded_data['desired'].points], 'g--',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\omega_{y_d}$')
-            ax.plot(self._recorded_data['desired'].time, 
-                    [e.vel[5] for e in self._recorded_data['desired'].points], 'b--',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\omega_{z_d}$')
+            ax.set_xlim(
+                np.min(self._recorded_data['desired'].time), 
+                np.max(self._recorded_data['desired'].time))
 
-            ax.plot(self._recorded_data['actual'].time, 
-                    [e.vel[3] for e in self._recorded_data['actual'].points], 'r',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\omega_x$')
-            ax.plot(self._recorded_data['actual'].time, 
-                    [e.vel[4] for e in self._recorded_data['actual'].points], 'g',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\omega_y$')
-            ax.plot(self._recorded_data['actual'].time, 
-                    [e.vel[5] for e in self._recorded_data['actual'].points], 'b',
-                    linewidth=self._plot_configs['trajectories']['linewidth'], label=r'$\omega_z$')
-            ax.legend(fancybox=True, framealpha=0.9,
-                      loc=self._plot_configs['trajectories']['legend']['loc'],
-                      fontsize=self._plot_configs['trajectories']['legend']['fontsize'])
-            ax.grid(True)
-            ax.tick_params(axis='both',
-                           labelsize=self._plot_configs['trajectories']['tick_labelsize'])
-            ax.set_xlabel('Time [s]',
-                          fontsize=self._plot_configs['trajectories']['label_fontsize'])
-            ax.set_ylabel('Angular velocity [rad/s]',
-                          fontsize=self._plot_configs['trajectories']['label_fontsize'])
-            ax.set_xlim(np.min(self._recorded_data['desired'].time), np.max(self._recorded_data['desired'].time))
+            self.config_2dplot(
+                ax=ax,
+                title='',
+                xlabel=r'Time [s]',
+                ylabel=r'Velocity [m/s]',
+                legend_on=True)   
 
             plt.tight_layout()
-            plt.savefig(os.path.join(output_path, 'trajectories_vel.pdf'))
+            plt.savefig(os.path.join(output_path, 'trajectories_lin_vel.pdf'))
+            plt.close(fig)
+            del fig
+
+            fig = self.get_figure()        
+            ax = fig.gca()
+            
+            ax.plot(self._recorded_data['desired'].time, 
+                    [e.vel[3] for e in self._recorded_data['desired'].points],                     
+                    color=COLOR_RED,
+                    linestyle='dashed',
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\omega_{x_d}$')
+            ax.plot(self._recorded_data['desired'].time, 
+                    [e.vel[4] for e in self._recorded_data['desired'].points], 
+                    color=COLOR_GREEN,
+                    linestyle='dashed',
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\omega_{y_d}$')
+            ax.plot(self._recorded_data['desired'].time, 
+                    [e.vel[5] for e in self._recorded_data['desired'].points], 
+                    color=COLOR_BLUE,
+                    linestyle='dashed',
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\omega_{z_d}$')
+
+            ax.plot(self._recorded_data['actual'].time, 
+                    [e.vel[3] for e in self._recorded_data['actual'].points], 
+                    color=COLOR_RED,
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\omega_x$')
+            ax.plot(self._recorded_data['actual'].time, 
+                    [e.vel[4] for e in self._recorded_data['actual'].points], 
+                    color=COLOR_GREEN,
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\omega_y$')
+            ax.plot(self._recorded_data['actual'].time, 
+                    [e.vel[5] for e in self._recorded_data['actual'].points], 
+                    color=COLOR_BLUE,
+                    linewidth=self._plot_configs['linewidth'], 
+                    label=r'$\omega_z$')
+            
+            ax.set_xlim(
+                np.min(self._recorded_data['desired'].time), 
+                np.max(self._recorded_data['desired'].time))
+
+            self.config_2dplot(
+                ax=ax,
+                title='',
+                xlabel=r'Time [s]',
+                ylabel=r'Ang. velocity [rad/s]',
+                legend_on=True)   
+
+            plt.tight_layout()
+            plt.savefig(os.path.join(output_path, 'trajectories_ang_vel.pdf'))
             plt.close(fig)
             del fig
         except Exception as e:

@@ -17,7 +17,7 @@ import rospy
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from simulation_data import SimulationData
+from simulation_data import SimulationData, COLOR_RED, COLOR_GREEN, COLOR_BLUE
 
 
 class CurrentVelocityData(SimulationData):
@@ -25,19 +25,6 @@ class CurrentVelocityData(SimulationData):
 
     def __init__(self, bag):
         super(CurrentVelocityData, self).__init__()
-
-        self._plot_configs = dict(current=dict(
-                                    figsize=[12, 5],
-                                    linewidth=2,
-                                    label_fontsize=30,
-                                    xlim=None,
-                                    ylim=None,
-                                    zlim=None,
-                                    tick_labelsize=25,
-                                    labelpad=10,
-                                    legend=dict(
-                                        loc='upper right',
-                                        fontsize=25)))
 
         for x in bag.get_type_and_topic_info():
             for k in x:
@@ -60,6 +47,25 @@ class CurrentVelocityData(SimulationData):
         except Exception as e:
             self._logger.error('Error retrieving current velocity data from rosbag, message=' + str(e))
 
+    def get_as_dataframe(self, add_group_name=None):
+        try:
+            import pandas
+
+            data = dict()
+            data[self.LABEL + '_time'] = self._time
+            data[self.LABEL + '_vel_x'] = [x[0] for x in self._recorded_data['vel']]
+            data[self.LABEL + '_vel_y'] = [x[1] for x in self._recorded_data['vel']]
+            data[self.LABEL + '_vel_z'] = [x[2] for x in self._recorded_data['vel']]
+
+            if add_group_name is not None:
+                data['group'] = [add_group_name for _ in range(len(self._time))]
+
+            return pandas.DataFrame(data)
+
+        except Exception as ex:
+            print('Error while exporting as pandas.DataFrame, message=' + str(ex))
+            return None
+
     @property
     def current_velocity(self):
         return self._time, self._recorded_data['vel']
@@ -69,25 +75,30 @@ class CurrentVelocityData(SimulationData):
             self._logger.error('Invalid output directory, dir=' + str(output_dir))
             raise Exception('Invalid output directory')
 
-        fig = plt.figure(figsize=(self._plot_configs['current']['figsize'][0],
-                                  self._plot_configs['current']['figsize'][1]))
         try:
             output_path = (self._output_dir if output_dir is None else output_dir)
             
-            ax = fig.add_subplot(111)
+            fig = self.get_figure()        
+            ax = fig.gca()
 
-            ax.plot(self._time, [v[0] for v in self._recorded_data['vel']], 'r', label=r'$u_C$',
-                    linewidth=self._plot_configs['current']['linewidth'])
-            ax.plot(self._time, [v[1] for v in self._recorded_data['vel']], 'g', label=r'$v_C$',
-                    linewidth=self._plot_configs['current']['linewidth'])
-            ax.plot(self._time, [v[2] for v in self._recorded_data['vel']], 'b', label=r'$w_C$',
-                    linewidth=self._plot_configs['current']['linewidth'])
-            ax.set_xlabel('Time [s]',
-                          fontsize=self._plot_configs['current']['label_fontsize'])
-            ax.set_ylabel('Velocity [m/s]',
-                          fontsize=self._plot_configs['current']['label_fontsize'])
-            ax.tick_params(axis='both',
-                           labelsize=self._plot_configs['current']['tick_labelsize'])
+            ax.plot(
+                self._time, 
+                [v[0] for v in self._recorded_data['vel']], 
+                color=COLOR_RED, 
+                label=r'$u_C$',
+                linewidth=self._plot_configs['linewidth'])
+            ax.plot(
+                self._time, 
+                [v[1] for v in self._recorded_data['vel']], 
+                color=COLOR_GREEN, 
+                label=r'$v_C$',
+                linewidth=self._plot_configs['linewidth'])
+            ax.plot(
+                self._time, 
+                [v[2] for v in self._recorded_data['vel']], 
+                color=COLOR_BLUE, 
+                label=r'$w_C$',
+                linewidth=self._plot_configs['linewidth'])
 
             min_y = [np.min([v[0] for v in self._recorded_data['vel']]),
                      np.min([v[1] for v in self._recorded_data['vel']]),
@@ -99,11 +110,15 @@ class CurrentVelocityData(SimulationData):
 
             lim_y = max(np.abs(np.min(min_y)), np.abs(np.max(max_y)))
             ax.set_ylim([np.min(min_y) - 0.1, np.max(max_y) + 0.1])
+
+            self.config_2dplot(
+                ax=ax,
+                title='',
+                xlabel='Time [s]',
+                ylabel='Velocity [m/s]',
+                legend_on=True)  
             # ax.set_yticks(np.linspace(np.floor(np.min(min_y)), np.floor(np.max(max_y)), 0.2))
 
-            ax.legend(fancybox=True, framealpha=0.9,
-                      loc=self._plot_configs['current']['legend']['loc'],
-                      fontsize=self._plot_configs['current']['legend']['fontsize'])
             ax.grid(True)
             plt.autoscale(enable=True, axis='x', tight=True)
 

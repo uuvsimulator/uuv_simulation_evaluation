@@ -15,6 +15,19 @@
 import numpy as np 
 import logging
 import sys
+import matplotlib.pyplot as plt
+
+try:
+    import seaborn
+    plt.style.use('seaborn-ticks')
+    plt.rcParams['legend.frameon'] = True
+    COLOR_RED = seaborn.xkcd_rgb['pale red']
+    COLOR_GREEN = seaborn.xkcd_rgb['medium green']
+    COLOR_BLUE = seaborn.xkcd_rgb['denim blue']
+except:
+    COLOR_RED = '#d62728'
+    COLOR_GREEN = '#2ca02c'
+    COLOR_BLUE = '#1f77b4'
 
 
 class SimulationData(object):
@@ -37,6 +50,20 @@ class SimulationData(object):
         self._recorded_data = dict()
         self._output_dir = '/tmp'
 
+        self._plot_configs = dict(                                    
+            figsize=[12, 6],
+            linewidth=3,
+            label_fontsize=22,
+            title_fontsize=20,
+            tick_labelsize=20,
+            xlim=None,
+            ylim=None,
+            zlim=None,                                    
+            labelpad=10,
+            legend=dict(
+                loc='upper right',
+                fontsize=22))
+
     @staticmethod
     def get_all_parsers():
         return SimulationData.__subclasses__()
@@ -56,3 +83,33 @@ class SimulationData(object):
     
     def get_data(self):
         return self._time, self._recorded_data    
+
+    def get_figure(self, n_rows=1):
+        return plt.figure(
+            figsize=(self._plot_configs['figsize'][0], n_rows * self._plot_configs['figsize'][1]))
+
+    def config_2dplot(self, ax, title, xlabel, ylabel, legend_on=True):
+        if len(title):
+            ax.set_title(
+                title, 
+                fontsize=self._plot_configs['title_fontsize'])
+        ax.grid(axis='both', alpha=0.3, linewidth=0.8)
+        ax.tick_params(
+            axis='both',
+            labelsize=self._plot_configs['tick_labelsize'])
+        ax.set_xlabel(
+            xlabel,
+            fontsize=self._plot_configs['label_fontsize'])
+        ax.set_ylabel(
+            ylabel,
+            fontsize=self._plot_configs['label_fontsize'])
+        if legend_on:
+            leg = ax.legend(
+                fancybox=True, 
+                framealpha=1, 
+                loc=self._plot_configs['legend']['loc'], 
+                fontsize=self._plot_configs['legend']['fontsize'])
+            leg.get_frame().set_facecolor('white')
+
+    def get_as_dataframe(self, add_group_name=None):
+        raise NotImplementedError()
