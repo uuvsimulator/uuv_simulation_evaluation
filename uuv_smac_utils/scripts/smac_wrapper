@@ -198,8 +198,9 @@ if __name__ == '__main__':
                     
             
             total_time = sum(sim_time.values())
-            total_cost = sum([cost[i] * sim_time[i] / total_time for i in cost])
-            SMAC_WRAPPER_LOGGER.info('All costs: %.2f' % total_cost)
+            total_cost = OPT_CONFIG.evaluate_tasks(cost.values())
+            SMAC_WRAPPER_LOGGER.info('Final cost: %.2f' % total_cost)
+            SMAC_WRAPPER_LOGGER.info('Task evaluation function: %s' % OPT_CONFIG.tasks_eval_fcn)
 
             atoi = lambda a: int(a) if a.isdigit() else a
             natural_keys = lambda text: [atoi(c) for c in re.split('(\d+)', text)]            
