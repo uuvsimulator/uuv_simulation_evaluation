@@ -256,7 +256,10 @@ def run_simulation(task):
 
     if runner is not None:
         if not runner.record_all_results:
+            SIMULATION_LOGGER.warning('Removing recording directory, dir=' + runner.current_sim_results_dir)
             runner.remove_recording_dir()
+        else:
+            SIMULATION_LOGGER.warning('Keeping recording directory, dir=' + runner.current_sim_results_dir)
         del runner
     if sim_eval is not None:
         del sim_eval
