@@ -22,7 +22,7 @@ from .constraint import Constraint
 
 
 class CostFunction(object):
-    def __init__(self):
+    def __init__(self, norm=1):
         self.logger = logging.getLogger('cost_function')
         if len(self.logger.handlers) == 0:
             out_hdlr = logging.StreamHandler(sys.stdout)
@@ -43,9 +43,20 @@ class CostFunction(object):
             self.logger.setLevel(logging.INFO)
 
         # Load default KPIs
+        if norm == 'inf':
+            self.norm = np.inf
+        else:
+            self.norm = norm
         self.kpis = dict()
         self.weights = dict()
         self.constraints = list()
+
+    def set_norm(self, norm):
+        if norm == 'inf':
+            self.norm = np.inf
+        else:
+            assert isinstance(norm, int)
+            self.norm = norm
 
     def add_constraints(self, constraints):
         for c in constraints:
@@ -124,13 +135,21 @@ class CostFunction(object):
         self.logger.debug('end set_kpis')        
 
     def compute(self):        
-        cost = 0.0
+        costs = list()
         self.logger.info('Calculating cost function=')
         for tag in sorted(self.weights.keys()):
             self.logger.info('\t {} - Weight: {} - KPI: {}'.format(tag, self.weights[tag], self.kpis[tag]))
             self.logger.info('\t\t Result: {}'.format(self.weights[tag] * self.kpis[tag]))
-            cost += self.weights[tag] * self.kpis[tag]
-        self.logger.info('Cost (before constraints)=' + str(cost))        
+            costs += [self.weights[tag] * self.kpis[tag]]
+        self.logger.info('Computing cost function from cost vector norm=%s' % str(self.norm))
+        total_cost = np.linalg.norm(costs, ord=self.norm)
+        self.logger.info('Cost (before constraints)=' + str(total_cost))        
+        total_cost += self.compute_constraints()        
+        self.logger.info('Cost (after constraints)=' + str(total_cost))
+        return total_cost
+
+    def compute_constraints(self):
+        value = 0.0
         if len(self.constraints) > 0:
             for c in self.constraints:
                 self.logger.info('\tConstraint=' + c.__class__.__name__)
@@ -145,9 +164,8 @@ class CostFunction(object):
                 c_fcn = c.compute(self.kpis[c.input_tag])
                 
                 self.logger.info('\t\tValue=' + str(c_fcn))                                
-                cost += c_fcn
-        self.logger.info('Cost (after constraints)=' + str(cost))
-        return cost
+                value += c_fcn
+        return value
 
     def save(self, output_dir='.'):
         assert os.path.isdir(output_dir), 'Invalid output directory'
