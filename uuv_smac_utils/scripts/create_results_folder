@@ -40,41 +40,50 @@ if __name__ == '__main__':
 
     smac_folders = list()
     other_files = list()
+    other_folders = list()
 
+    print(os.listdir(args.input_dir))
     for item in os.listdir(args.input_dir):
-        if ('.yml' in item or '.txt' in item or '.pcs' in item or '.md' in item) and \
+        if ('.yml' in item or '.txt' in item or '.pcs' in item or '.md' in item or '.json' in item) and \
            os.path.isfile(os.path.join(args.input_dir, item)):
             other_files.append(os.path.join(args.input_dir, item))
             print('File found = ' + os.path.join(args.input_dir, item))
         if 'smac3-output' in item and os.path.isdir(os.path.join(args.input_dir, item)):
             smac_folders.append(os.path.join(args.input_dir, item))
             print('Folder found = ' + smac_folders[-1])
+        if ('best_results' in item or 'mps_plots' in item) and os.path.isdir(os.path.join(args.input_dir, item)):
+            other_folders.append(os.path.join(args.input_dir, item))
 
     assert len(smac_folders) > 0, 'No SMAC output folders found in directory ' + args.input_dir
 
+    datestr = strftime("%Y-%m-%d_%H:%M:%S", gmtime())
+    results_folder_prefix = 'results_' + datestr
+    results_folder_prefix = results_folder_prefix.replace(' ', '_')
+    results_folder_prefix = results_folder_prefix.replace(':', '-')
+
+    info_file = dict(name='<add name here>',
+                    date=strftime("%Y-%m-%d_%H:%M:%S", gmtime()),
+                    iterations='<add max. number of iterations used>',
+                    controller='<add name of the controller here>',
+                    description='<add description here>')
+
+    results_folder = os.path.join(args.output_dir, results_folder_prefix)
+    assert not os.path.isdir(results_folder), 'Results folder already exists!'
+
+    os.makedirs(results_folder)
+    print('Results folder created = ' + results_folder)
+
     for i in range(len(smac_folders)):
         smac_dir = smac_folders[i]
-        datestr = strftime("%Y-%m-%d_%H:%M:%S", gmtime())
-        results_folder_prefix = 'results_' + datestr
-        results_folder_prefix = results_folder_prefix.replace(' ', '_')
-        results_folder_prefix = results_folder_prefix.replace(':', '-')
-
-        info_file = dict(name='<add name here>',
-                        date=strftime("%Y-%m-%d_%H:%M:%S", gmtime()),
-                        iterations='<add max. number of iterations used>',
-                        controller='<add name of the controller here>',
-                        description='<add description here>')
-
-        results_folder = os.path.join(args.output_dir, results_folder_prefix + '_' + str(i))
-        assert not os.path.isdir(results_folder), 'Results folder already exists!'
-
-        os.makedirs(results_folder)
-        print('Results folder created = ' + results_folder)
-
+        
         for item in other_files:
             shutil.copy(item, results_folder)
 
         shutil.copytree(smac_dir, os.path.join(results_folder, os.path.basename(smac_dir)))
+
+        for item in other_folders:
+            if not os.path.isdir(os.path.join(results_folder, os.path.basename(item))):
+                shutil.copytree(item, os.path.join(results_folder, os.path.basename(item)))
 
         with open(os.path.join(results_folder, 'info.yaml'), 'w') as info:
             yaml.dump(info_file, info, default_flow_style=False)
