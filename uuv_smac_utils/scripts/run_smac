@@ -62,7 +62,7 @@ LOGGER.addHandler(file_hdlr)
 LOGGER.setLevel(logging.INFO)
 
 
-def create_scenario_file(n):
+def create_scenario_file(n, initial_incumbent='DEFAULT'):
     datestr = strftime("%Y-%m-%d_%H:%M:%S", gmtime())
     scenario_filename = 'scenario_%s_%d.txt' % (datestr,
                                                 random.randrange(0, 1e5, 1))
@@ -78,7 +78,8 @@ def create_scenario_file(n):
         s_file.write('runcount_limit = %d\n' % n)
         s_file.write('deterministic = 1\n')
         s_file.write('abort_on_first_run_crash = false\n')
-        s_file.write('intensification_percentage = 0.5')
+        s_file.write('intensification_percentage = 0.5\n')
+        s_file.write('initial_incumbent = %s\n' % initial_incumbent)
 
     return scenario_filename
 
@@ -93,11 +94,11 @@ class SMACProcess(threading.Thread):
         self.cmd = 'python3 ' + SMAC_SCRIPT
         self.cmd += ' --scenario_file ' + scenario_filename
         self.cmd += ' --verbose_level ' + mode
-        
-        if is_parallel:
-            self.cmd += ' --seed %d' % random.randrange(0, 1e5, 1)
-            self.cmd += ' --shared_model True'
-            self.cmd += ' --input_psmac_dirs smac3-output*'
+        self.cmd += ' --seed %d' % random.randrange(0, 1e5, 1)
+
+        if is_parallel:            
+            self.cmd += ' --shared_model true'
+            self.cmd += ' --input_psmac_dirs smac3-output*/run_*'
 
         if restore_state_folder is not None:
             if os.path.isdir(restore_state_folder):
@@ -162,12 +163,19 @@ if __name__ == '__main__':
         default='',
         type=str,
         help='')
+    parser.add_argument(
+        '--initial_incumbent',
+        metavar='INITIAL_INC',
+        default='DEFAULT',
+        type=str,
+        help='DEFAULT to use the incumbent in the PCS file, RANDOM otherwise')
 
     # Parse input arguments
     args = parser.parse_args(rospy.myargv()[1:])
 
     assert args.max_runs > 0, 'Number of simulation runs must be greater than zero'
     assert os.path.exists(PARAM_FILE), 'Parameter file does not exist'
+    assert args.initial_incumbent in ['DEFAULT', 'RANDOM']
 
     mode = ('DEBUG' if args.debug else 'INFO')
 
@@ -177,7 +185,7 @@ if __name__ == '__main__':
     if args.n_smacs > 1:
         LOGGER.info('Number of SMAC instances = %d', args.n_smacs)
         for n in range(args.n_smacs):
-            scenario_filename = create_scenario_file(args.max_runs)
+            scenario_filename = create_scenario_file(args.max_runs, args.initial_incumbent)
 
             LOGGER.info('#%d SMAC PROCESS' % n)
             LOGGER.info('Scenario filename = %s' % scenario_filename)
@@ -191,7 +199,7 @@ if __name__ == '__main__':
         if os.path.isdir(args.restore_state):
             restore_state_folder = args.restore_state
 
-        scenario_filename = create_scenario_file(args.max_runs)
+        scenario_filename = create_scenario_file(args.max_runs, args.initial_incumbent)
         procs.append(SMACProcess(scenario_filename, mode,
                                  restore_state_folder=restore_state_folder))
 
