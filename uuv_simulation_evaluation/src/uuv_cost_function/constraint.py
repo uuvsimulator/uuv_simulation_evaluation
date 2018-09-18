@@ -99,3 +99,14 @@ class PenaltyFunction(Constraint):
         if self.x - self.params['offset'] < 0:
             return 0
         return self.params['c'] * np.power(max(0, self.params['gain'] * (self.x - self.params['offset'])), self.params['n'])
+
+
+class DistancePenaltyFunction(Constraint):
+    def __init__(self, tag='', input_tag=''):
+        Constraint.__init__(self, tag, input_tag)
+        
+    def compute(self, x=None):
+        if x is not None:
+            self.x = x
+        return self.params['c'] * np.power(self.params['gain'] * np.abs(x - self.params['offset']), self.params['n'])
+
