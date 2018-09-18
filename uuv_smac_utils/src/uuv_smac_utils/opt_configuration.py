@@ -17,7 +17,7 @@ import yaml
 import re
 import numpy
 from uuv_cost_function import CostFunction
-from .utils import init_logger, parse_smac_input, SIMULATION_LOGGER
+from .utils import init_logger, parse_param_input, SIMULATION_LOGGER
 
 
 class OptConfiguration(object):
@@ -116,8 +116,8 @@ class OptConfiguration(object):
 
         self.tasks_eval_fcn = 'numpy.mean(%s)'
 
-        if 'tasks_eval_fcn' in self._opt_config:
-            self.tasks_eval_fcn = self._opt_config['tasks_eval_fcn']
+        if 'task_eval_fcn' in self._opt_config:
+            self.tasks_eval_fcn = self._opt_config['task_eval_fcn']
 
         if 'cost_fcn' in self._opt_config:
             SIMULATION_LOGGER.info('Initializing cost function')
@@ -175,9 +175,14 @@ class OptConfiguration(object):
             OptConfiguration.CONFIG = OptConfiguration(input_data)
             return OptConfiguration.CONFIG
 
+    def get_constraint_tags(self):
+        if self.cost_fcn is None:
+            return None
+        return self.cost_fcn.get_constraint_tags()        
+
     def parse_input(self, args):
         assert 'input_map' in self._opt_config, 'Input parameter map is not available'
-        self.params = parse_smac_input(args, self._opt_config['input_map'])
+        self.params = parse_param_input(args, self._opt_config['input_map'])
 
     def print_params(self):
         if self.params is None:
