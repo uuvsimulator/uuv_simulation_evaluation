@@ -266,7 +266,7 @@ def plot_paths(output_dir, bags, labels, title, filename):
     if min_z >= 0 and max_z >= 0:
         plt.gca().invert_zaxis()
 
-    ax.view_init(elev=15, azim=30)
+    ax.view_init(elev=49, azim=-38)
 
     plt.tight_layout()
     fig.savefig(os.path.join(output_dir, filename))
@@ -375,8 +375,8 @@ def plot_comparison_pose_error(output_dir, bags, labels, title, filename, time_o
         ax.set_xlim(min_t, max_t)
         ax.set_ylim(min_value, max_value)
 
-        ax.set_xticklabels([r'${:>5.1f}$'.format(float(s)) for s in ax.get_xticks()])
-        ax.set_yticklabels([r'${:>5.1f}$'.format(float(s)) for s in ax.get_yticks()])
+        ax.set_xticklabels([r'${:>5.2f}$'.format(float(s)) for s in ax.get_xticks()])
+        ax.set_yticklabels([r'${:>5.2f}$'.format(float(s)) for s in ax.get_yticks()])
 
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, e_tag + '_' + filename))
@@ -482,6 +482,7 @@ if __name__ == '__main__':
 
     if 'cost_fcn' in config_file:
         if isinstance(config_file['cost_fcn'], str):
+            logger.info('Cost function file=' + str(config_file['cost_fcn']))
             assert os.path.isfile(config_file['cost_fcn'])
             with open(config_file['cost_fcn']) as f:
                 cost_fcn = yaml.load(f)
