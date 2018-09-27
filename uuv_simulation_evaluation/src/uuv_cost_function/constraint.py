@@ -35,7 +35,10 @@ class Constraint(object):
 
     def from_dict(self, params):
         for tag in params:
-            assert type(params[tag]) in [float, int], 'Parameter with tag <%s> is not a number' % tag
+            if tag == 'offset':
+                assert type(params[tag]) in [float, int, list], 'Parameter with tag <%s> is not a number nor a list' % tag    
+            else:
+                assert type(params[tag]) in [float, int], 'Parameter with tag <%s> is not a number' % tag
             assert tag in self.params, 'Invalid parameter, tag=%s' % tag
             self.params[tag] = params[tag]
 
@@ -88,7 +91,6 @@ class InverseBarrierMethod(Constraint):
 
 
 class PenaltyFunction(Constraint):
-
     def __init__(self, tag='', input_tag=''):
         Constraint.__init__(self, tag, input_tag)
         self.params['n'] = 0.0
@@ -104,9 +106,16 @@ class PenaltyFunction(Constraint):
 class DistancePenaltyFunction(Constraint):
     def __init__(self, tag='', input_tag=''):
         Constraint.__init__(self, tag, input_tag)
-        
+        self.params['n'] = 0.0
+
     def compute(self, x=None):
         if x is not None:
             self.x = x
-        return self.params['c'] * np.power(self.params['gain'] * np.abs(x - self.params['offset']), self.params['n'])
+        else:
+            return 0
+
+        if isinstance(self.params['offset'], list):
+            return np.min([self.params['c'] * np.power(self.params['gain'] * np.abs(x - i), self.params['n']) for i in self.params['offset']])
+        else:
+            return self.params['c'] * np.power(self.params['gain'] * np.abs(x - self.params['offset']), self.params['n'])
 
