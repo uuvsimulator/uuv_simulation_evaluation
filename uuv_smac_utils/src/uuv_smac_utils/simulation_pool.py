@@ -193,6 +193,14 @@ def run_simulation(task):
             SIMULATION_LOGGER.info('Store KPIs and graphs')
 
         SIMULATION_LOGGER.info('Calculating cost function')
+
+        kpis = sim_eval.get_kpis()
+
+        for tag in kpis:
+            if kpis[tag] < 0:
+                SIMULATION_LOGGER.info('KPI <%s> returned an invalid value=%.3f' % (tag, kpis[tag]))
+                raise Exception('KPI <%s> returned an invalid value=%.3f' % (tag, kpis[tag]))
+                
         partial_cost = opt_config.compute_cost_fcn(sim_eval.get_kpis())
 
         if partial_cost < 0:
@@ -210,6 +218,7 @@ def run_simulation(task):
             sim_time=sim_time,
             results_dir=runner.current_sim_results_dir,
             recording_filename=runner.recording_filename,
+            cost_function_data=opt_config.cost_fcn.get_data(),
             task=task)
 
         add_to_run_log(output)
@@ -256,7 +265,10 @@ def run_simulation(task):
 
     if runner is not None:
         if not runner.record_all_results:
+            SIMULATION_LOGGER.warning('Removing recording directory, dir=' + runner.current_sim_results_dir)
             runner.remove_recording_dir()
+        else:
+            SIMULATION_LOGGER.warning('Keeping recording directory, dir=' + runner.current_sim_results_dir)
         del runner
     if sim_eval is not None:
         del sim_eval

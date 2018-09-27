@@ -23,7 +23,7 @@ SIMULATION_LOGGER = logging.getLogger('smac_utils')
 SIM_SUCCESS = 'SUCCESS'
 SIM_CRASHED = 'CRASHED'
 
-def parse_smac_input(args, input_map):
+def parse_param_input(args, input_map):
     if isinstance(args, dict):
         p = args
     else:

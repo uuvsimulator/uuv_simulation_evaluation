@@ -22,7 +22,7 @@ from .constraint import Constraint
 
 
 class CostFunction(object):
-    def __init__(self):
+    def __init__(self, norm=1):
         self.logger = logging.getLogger('cost_function')
         if len(self.logger.handlers) == 0:
             out_hdlr = logging.StreamHandler(sys.stdout)
@@ -43,10 +43,22 @@ class CostFunction(object):
             self.logger.setLevel(logging.INFO)
 
         # Load default KPIs
+        if norm == 'inf':
+            self.norm = np.inf
+        else:
+            self.norm = norm
         self.kpis = dict()
         self.weights = dict()
         self.constraints = list()
+        self.export_data = dict(norm=self.norm)
 
+    def set_norm(self, norm):
+        if norm == 'inf':
+            self.norm = np.inf
+        else:
+            assert isinstance(norm, int)
+            self.norm = norm
+            
     def add_constraints(self, constraints):
         for c in constraints:
             if not self.add_constraint(c['type'], c['tag'], c['input_tag'], c['params']):
@@ -67,6 +79,11 @@ class CostFunction(object):
             self.logger.error('Error adding constraint ' + fcn_name + ', message=' + str(e))
             return False
 
+    def get_constraint_tags(self):
+        if len(self.constraints) == 0:
+            return list()
+        return [c.tag for c in self.constraints]
+
     def from_dict(self, params):
         for tag in params:
             self.kpis[tag] = 0.0
@@ -77,6 +94,12 @@ class CostFunction(object):
 
     def get_kpis(self):
         return self.kpis
+
+    def get_cost_fcn_kpis(self):
+        output = dict()
+        for tag in self.weights:
+            output[tag] = self.kpis[tag]
+        return output
 
     def get_kpi(self, tag):
         if not self.is_kpi(tag):
@@ -124,13 +147,34 @@ class CostFunction(object):
         self.logger.debug('end set_kpis')        
 
     def compute(self):        
-        cost = 0.0
-        self.logger.info('Calculating cost function=')
+        costs = list()
+        self.logger.info('Calculating cost function=')    
+        w = 1. / len(self.weights.keys())    
         for tag in sorted(self.weights.keys()):
-            self.logger.info('\t {} - Weight: {} - KPI: {}'.format(tag, self.weights[tag], self.kpis[tag]))
-            self.logger.info('\t\t Result: {}'.format(self.weights[tag] * self.kpis[tag]))
-            cost += self.weights[tag] * self.kpis[tag]
-        self.logger.info('Cost (before constraints)=' + str(cost))        
+            if self.kpis[tag] < 0:
+                raise Exception('KPI <%s> has an invalid value=%.2f' % (tag, self.kpis[tag]))
+            costs += [w * self.weights[tag] * self.kpis[tag]]
+
+            self.logger.info('\t {} - Weight: {} * {} - KPI: {}'.format(tag, w, self.weights[tag], self.kpis[tag]))
+            self.logger.info('\t\t Result: {}'.format(costs[-1]))
+
+            self.export_data['weight_' + tag] = float(w * self.weights[tag])
+            self.export_data[tag] = float(self.kpis[tag])
+            self.export_data['cost_' + tag] = float(w * self.weights[tag] * self.kpis[tag])
+            
+        self.logger.info('Computing cost function from cost vector norm=%s' % str(self.norm))
+        total_cost = np.linalg.norm(costs, ord=self.norm)
+        
+        self.logger.info('Cost (before constraints)=' + str(total_cost))        
+        total_cost += self.compute_constraints()        
+
+        self.export_data['total_cost'] = float(total_cost)
+        self.logger.info('Cost (after constraints)=' + str(total_cost))
+        self.export_data['norm'] = str(self.norm)
+        return total_cost
+
+    def compute_constraints(self):
+        value = 0.0
         if len(self.constraints) > 0:
             for c in self.constraints:
                 self.logger.info('\tConstraint=' + c.__class__.__name__)
@@ -143,11 +187,12 @@ class CostFunction(object):
                     self.logger.error(self.kpis.keys())
                     raise Exception('%s tag not in KPIs list' % c.input_tag)
                 c_fcn = c.compute(self.kpis[c.input_tag])
+
+                self.export_data[c.tag] = float(c_fcn)
                 
                 self.logger.info('\t\tValue=' + str(c_fcn))                                
-                cost += c_fcn
-        self.logger.info('Cost (after constraints)=' + str(cost))
-        return cost
+                value += c_fcn
+        return value
 
     def save(self, output_dir='.'):
         assert os.path.isdir(output_dir), 'Invalid output directory'
@@ -162,6 +207,9 @@ class CostFunction(object):
         except Exception as e:
             self.logger.error('Error while storing cost function configuration, message=' + str(e))
             return False
+
+    def get_data(self):
+        return self.export_data
 
 if __name__ == '__main__':
     cf = CostFunction()

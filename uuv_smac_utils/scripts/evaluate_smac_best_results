@@ -30,39 +30,61 @@ import json
 import shutil
 import sys
 import yaml
+import pandas as pd
 import numpy as np
+import random
 from time import sleep, strftime, gmtime
 from rospkg import RosPack
+from cycler import cycler
 from uuv_simulation_runner import SimulationRunner
 from uuv_bag_evaluation import Evaluation
 from uuv_bag_evaluation.metrics import KPI
 from uuv_cost_function import CostFunction
 from uuv_smac_utils import OptConfiguration, start_simulation_pool, \
-    stop_simulation_pool, parse_smac_input
+    stop_simulation_pool, parse_param_input
+
+try:
+    import seaborn
+    plt.style.use('seaborn-ticks')
+    plt.rcParams['legend.frameon'] = True
+    
+    COLORS = seaborn.color_palette("muted", 20)    
+except:
+    COLORS = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
+
+plt.rcParams['axes.prop_cycle'] = cycler('color', COLORS)
 
 roslib.load_manifest('uuv_smac_utils')
 
+PLOT_CONFIGS = dict(                                    
+    figsize=[12, 6],
+    linewidth=3,
+    label_fontsize=22,
+    title_fontsize=20,
+    tick_labelsize=20,
+    xlim=None,
+    ylim=None,
+    zlim=None,                                    
+    labelpad=10,
+    legend=dict(
+        loc='upper right',
+        fontsize=22))
+        
 ROSPACK_INST = RosPack()
 GEN_PDF = False
+SMAC_OUTPUT = list()
+INCUMBENTS = dict()
 
 
-def run_simulation(idx, smac_results, output_dir):
+def run_simulation(inc, output_dir):
+    print('Running simulation for incumbent=')
+    print(inc)
     opt_config = OptConfiguration.get_instance()
-    smac_result = json.loads(smac_results[idx])
-    sub_result_folder = os.path.join(os.getcwd(), output_dir, str(idx))
-
-    result_folders[idx] = dict()
-
-    if not os.path.isdir(sub_result_folder):
-        os.makedirs(sub_result_folder)
-
-    # Store the partial result in the folder
-    with open(os.path.join(sub_result_folder, 'partial_result.json'), 'w') as p_res:
-        p_res.write(json.dumps(smac_result))
-
+    sub_result_folder = os.path.join(os.getcwd(), output_dir, str(inc['evaluations']))
+    
     parsed_params = dict()
 
-    for item in smac_result['incumbent']:
+    for item in inc['incumbent']:
         tag, value = item.split('=')
         parsed_params[tag] = float(value[1:-1])
 
@@ -70,8 +92,21 @@ def run_simulation(idx, smac_results, output_dir):
     opt_config.results_dir = sub_result_folder
 
     failed_tasks = list()
+
+    print('Running simulation')
+    print('\t Output=' + sub_result_folder)
+    
+    if not os.path.isdir(sub_result_folder):
+        os.makedirs(sub_result_folder)
+
+    # Store the partial result in the folder
+    with open(os.path.join(sub_result_folder, 'partial_result.json'), 'w') as p_res:
+        p_res.write(json.dumps(inc))
+
     output, failed_tasks = start_simulation_pool(2,
-                                                 output_dir=sub_result_folder)
+                                                output_dir=sub_result_folder)
+
+    sleep(3 * random.random())
 
     time_offset = 0.0
     if opt_config.evaluation_time_offset is not None:
@@ -88,6 +123,8 @@ def run_simulation(idx, smac_results, output_dir):
         else:
             sim_eval.save_kpis()
         sleep(0.1)
+
+    sleep(2 * random.random())
 
     return output
 
@@ -117,16 +154,15 @@ def plot_trajectories(results, output_dir):
         ax = fig.gca(projection='3d')
 
         task_results = get_task_results(results, task)
-        print('Task=', task)
-        print('Results=', task_results)
-
-        task_name = task_results[0]['task'].split('/')[-1]
+        idx = np.min(task_results.keys())
+        
+        task_name = task_results[idx]['task'].split('/')[-1]
         task_name = task_name.split('.')[0]
 
         trajplot_dir = os.path.join(output_dir, 'plots', task_name)
 
-        sim_eval = Evaluation(task_results[0]['recording_filename'],
-                              task_results[0]['results_dir'],
+        sim_eval = Evaluation(task_results[idx]['recording_filename'],
+                              task_results[idx]['results_dir'],
                               time_offset=time_offset)
 
 
@@ -137,11 +173,11 @@ def plot_trajectories(results, output_dir):
         ax.plot(
             [d.x for d in desired],
             [d.y for d in desired],
-            [d.z for d in desired], 'b--', label='Desired path', linewidth=3)
+            [d.z for d in desired], 'b--', label='Desired path', linewidth=PLOT_CONFIGS['linewidth'])
         ax.plot(
             [d.x for d in traj],
             [d.y for d in traj],
-            [d.z for d in traj], 'g', label='Initial set', linewidth=3)
+            [d.z for d in traj], 'g', label='Initial set', linewidth=PLOT_CONFIGS['linewidth'])
 
         # Calculating the boundaries of the paths
         min_x = np.min([np.min([e.p[0] for e in desired]),
@@ -162,7 +198,7 @@ def plot_trajectories(results, output_dir):
         max_z = np.max([np.max([e.p[2] for e in desired]),
                         np.max([e.p[2] for e in traj])])
 
-        idx = task_results.keys()[-1]
+        idx = np.max(task_results.keys())
         sim_eval = Evaluation(task_results[idx]['recording_filename'],
                               task_results[idx]['results_dir'],
                               time_offset=time_offset)
@@ -172,7 +208,7 @@ def plot_trajectories(results, output_dir):
         ax.plot(
             [d.x for d in traj],
             [d.y for d in traj],
-            [d.z for d in traj], 'r', label='Optimal set', linewidth=3)
+            [d.z for d in traj], 'r', label='Optimal set', linewidth=PLOT_CONFIGS['linewidth'])
 
         # Calculating the boundaries of the paths
         min_x = np.min([min_x, np.min([e.p[0] for e in traj])])
@@ -188,19 +224,19 @@ def plot_trajectories(results, output_dir):
         ax.set_ylim(min_y - 1, max_y + 1)
         ax.set_zlim(min_z - 1, max_z + 1)
 
-        ax.set_xlabel('X [m]', fontsize=20)
-        ax.set_ylabel('Y [m]', fontsize=20)
-        ax.set_zlabel('Z [m]', fontsize=20)
+        ax.set_xlabel('X [m]', fontsize=PLOT_CONFIGS['label_fontsize'])
+        ax.set_ylabel('Y [m]', fontsize=PLOT_CONFIGS['label_fontsize'])
+        ax.set_zlabel('Z [m]', fontsize=PLOT_CONFIGS['label_fontsize'])
 
-        ax.tick_params(axis='x', labelsize=18)
-        ax.tick_params(axis='y', labelsize=18)
-        ax.tick_params(axis='z', labelsize=18)
+        ax.tick_params(axis='x', labelsize=PLOT_CONFIGS['tick_labelsize'])
+        ax.tick_params(axis='y', labelsize=PLOT_CONFIGS['tick_labelsize'])
+        ax.tick_params(axis='z', labelsize=PLOT_CONFIGS['tick_labelsize'])
 
         ax.xaxis.labelpad = 10
         ax.yaxis.labelpad = 10
         ax.zaxis.labelpad = 10
 
-        ax.legend(loc='upper left', fancybox=True, framealpha=0.8, fontsize=18)
+        ax.legend(loc='upper left', fancybox=True, framealpha=0.8, fontsize=PLOT_CONFIGS['legend']['fontsize'])
         ax.grid(True)
         # fig.tight_layout()
 
@@ -216,30 +252,45 @@ def plot_trajectories(results, output_dir):
         plt.close(fig)
 
 
-def plot_cost(results_filename, output_dir):
-    with open(results_filename, 'r') as s_file:
-        for line in s_file:
-            smac_result = json.loads(line)
-            cost.append(smac_result['cost'])
-            evals.append(smac_result['evaluations'])
-
+def plot_cost(output_dir):
     ########################################################################
     # Plot cost function evolution
     ########################################################################
 
-    # SMAC's first two runs are always the same
-    cost[0] = cost[1]
-    fig = plt.figure(figsize=(6, 4))
+    # SMAC's first two runs are always the same    
+    fig = plt.figure(figsize=(PLOT_CONFIGS['figsize'][0], PLOT_CONFIGS['figsize'][1]))
     ax = fig.add_subplot(111)
 
-    ax.plot(evals, cost, '--b', linewidth=3, zorder=1)
-    ax.scatter(evals, cost, s=60, color='red', zorder=2)
+    max_evals = 0
+    ax.set_yscale('log')
 
-    ax.set_xlabel('Number of evaluations', fontsize=20)
-    ax.set_ylabel('Cost function', fontsize=20)
-    ax.tick_params(axis='both', labelsize=18)
+    for i in range(len(SMAC_OUTPUT)):
+        evals = range(SMAC_OUTPUT[i]['stats']['ta_runs'])
+        max_evals = max(max_evals, evals[-1])
+
+        costs = [0 for _ in range(len(evals))]
+        cur_inc = 1     
+        for j in evals:                       
+            if j > 1:                
+                if cur_inc < (len(SMAC_OUTPUT[i]['incumbents']) - 1):
+                    if j == SMAC_OUTPUT[i]['incumbents'][cur_inc + 1]['evaluations']:
+                        cur_inc += 1            
+            costs[j] = SMAC_OUTPUT[i]['incumbents'][cur_inc]['cost']
+            
+        ax.plot(
+            evals, 
+            costs, 
+            linewidth=PLOT_CONFIGS['linewidth'], zorder=1, 
+            label=str(i),
+            linestyle='--',
+            marker='o')
+        
+    ax.set_xlabel('Number of evaluations', fontsize=PLOT_CONFIGS['label_fontsize'])
+    ax.set_ylabel('Cost function', fontsize=PLOT_CONFIGS['label_fontsize'])
+    ax.tick_params(axis='both', labelsize=PLOT_CONFIGS['tick_labelsize'])
     ax.grid(True)
-    ax.set_xlim(np.min(evals), np.max(evals))
+        
+    ax.set_xlim(0, max_evals)    
     plt.tight_layout()
 
     if not os.path.isdir(os.path.join(output_dir, 'plots')):
@@ -266,26 +317,26 @@ def plot_position_heading_error(results, output_dir):
     time_offset = max(0.0, opt_config.evaluation_time_offset)
 
     for task in opt_config.tasks:
-        fig = plt.figure(figsize=(10, 6))
+        fig = plt.figure(figsize=(PLOT_CONFIGS['figsize'][0], PLOT_CONFIGS['figsize'][1]))
         task_results = get_task_results(results, task)
-        print('Task=', task)
-        print('Results=', task_results)
 
-        task_name = task_results[0]['task'].split('/')[-1]
+        idx = np.min(task_results.keys())                
+        task_name = task_results[idx]['task'].split('/')[-1]
         task_name = task_name.split('.')[0]
 
         # Plot position error
         ax = fig.add_subplot(211)
-
-        sim_eval = Evaluation(task_results[0]['recording_filename'],
-                              task_results[0]['results_dir'],
+        
+        sim_eval = Evaluation(task_results[idx]['recording_filename'],
+                              task_results[idx]['results_dir'],
                               time_offset=time_offset)
 
         error_t_ini = sim_eval._error_set.get_time()
         error_vec_ini = KPI.get_error(sim_eval._error_set.get_data('position'))
         error_yaw_vec_ini = sim_eval._error_set.get_data('yaw')
 
-        ax.plot(error_t_ini, error_vec_ini, color='#E2742B', linewidth=3, label='Initial set')
+        ax.plot(error_t_ini, error_vec_ini, 
+            color='#E2742B', linewidth=PLOT_CONFIGS['linewidth'], label='Initial set')
 
         error_max = np.max(error_vec_ini)
 
@@ -293,7 +344,7 @@ def plot_position_heading_error(results, output_dir):
         t_cur, vec_cur = sim_eval.recording.parsers['current_velocity'].current_velocity
         t_force, vec_force, vec_torque = sim_eval.recording.parsers['wrench_perturbation'].disturbances
 
-        idx = task_results.keys()[-1]
+        idx = np.max(task_results.keys())
         sim_eval = Evaluation(task_results[idx]['recording_filename'],
                               task_results[idx]['results_dir'],
                               time_offset=time_offset)
@@ -302,7 +353,8 @@ def plot_position_heading_error(results, output_dir):
         error_vec_opt = KPI.get_error(sim_eval._error_set.get_data('position'))
         error_yaw_vec_opt = sim_eval._error_set.get_data('yaw')
 
-        ax.plot(error_t_opt, error_vec_opt, color='#6600CC', linewidth=3, label='Optimal set')
+        ax.plot(error_t_opt, error_vec_opt, 
+            color='#6600CC', linewidth=PLOT_CONFIGS['linewidth'], label='Optimal set')
 
         error_max = np.max([error_max, np.max(error_vec_opt)])
 
@@ -335,8 +387,8 @@ def plot_position_heading_error(results, output_dir):
         # Plot heading error
         ax = fig.add_subplot(212)
 
-        ax.plot(error_t_ini, error_yaw_vec_ini, color='#E2742B', linewidth=3, label='Initial set')
-        ax.plot(error_t_opt, error_yaw_vec_opt, color='#6600CC', linewidth=3, label='Optimal set')
+        ax.plot(error_t_ini, error_yaw_vec_ini, color='#E2742B', linewidth=PLOT_CONFIGS['linewidth'], label='Initial set')
+        ax.plot(error_t_opt, error_yaw_vec_opt, color='#6600CC', linewidth=PLOT_CONFIGS['linewidth'], label='Optimal set')
 
         error_max = np.pi
         error_min = -np.pi
@@ -358,11 +410,11 @@ def plot_position_heading_error(results, output_dir):
                 tau[tau > 0] = 1.05
                 ax.fill_between(t_force, tau * error_min, tau * error_max, facecolor='green', alpha=0.2, label='Torque disturbance activated')
 
-        ax.set_xlabel('Time [s]', fontsize=20)
-        ax.set_ylabel('Heading error [rad]', fontsize=20)
+        ax.set_xlabel('Time [s]', fontsize=PLOT_CONFIGS['label_fontsize'])
+        ax.set_ylabel('Heading error [rad]', fontsize=PLOT_CONFIGS['label_fontsize'])
         ax.legend(fancybox=True, framealpha=0.9, loc='upper left', fontsize=16)
         ax.grid(True)
-        ax.tick_params(axis='both', labelsize=15)
+        ax.tick_params(axis='both', labelsize=PLOT_CONFIGS['tick_labelsize'])
         ax.set_xlim(np.min(error_t_ini), np.max(error_t_ini))
         ax.set_ylim(-np.pi, np.pi)
 
@@ -379,6 +431,66 @@ def plot_position_heading_error(results, output_dir):
         filename = os.path.join(errors_dir, 'error_comparison.png')
         plt.savefig(filename)
         plt.close(fig)
+
+
+def plot_best_incumbent(input_dir, output_dir):
+    ########################################################################
+    # Find the data frames with each iterations' parameter
+    ########################################################################
+
+    df = dict()
+    for filename in os.listdir(args.input_dir):
+        if 'smac_iteration_params' in filename:
+            seed = 0
+            df[seed] = pd.read_json(os.path.join(args.input_dir, filename))
+
+    opt_index = 0
+    opt_cost = 0
+
+    for seed in df:
+        fig = plt.figure(figsize=(PLOT_CONFIGS['figsize'][0], PLOT_CONFIGS['figsize'][0]))
+        ax = fig.add_subplot(111, polar=True)
+
+        opt_cost = df[seed]['cost'].min()
+        opt_index = df[seed].index[df[seed]['cost'] == df[seed]['cost'].min()]
+        max_param = 0
+
+        N = df[seed].columns.size - 1
+        angles = [n / float(N) * 2 * np.pi for n in range(N)]
+        params = list()
+        labels = list()
+        for tag in df[seed].columns:           
+            if tag == 'cost':
+                continue            
+            params.append(df[seed][tag][opt_index].values[0])
+            max_param = max(max_param, df[seed][tag].max())
+            labels.append(tag.replace('_', '\_'))
+            
+        angles += angles[:1]
+        params += params[:1]
+        
+        ax.plot(angles, params, linewidth=PLOT_CONFIGS['linewidth'], linestyle='solid')
+        ax.fill(angles, params, 'b', alpha=0.1)
+
+        plt.xticks(angles[:-1], labels, size=PLOT_CONFIGS['label_fontsize'] + 5)        
+        ax.tick_params(axis='both', labelsize=PLOT_CONFIGS['tick_labelsize'])
+        ax.grid(True)
+        ax.set_ylim(0, max_param)
+        
+        plt.tight_layout()
+
+        if not os.path.isdir(os.path.join(output_dir, 'plots')):
+            os.makedirs(os.path.join(output_dir, 'plots'))
+
+        if GEN_PDF:
+            filename = os.path.join(output_dir, 'plots', 'parameter_evolution_%d.pdf' % seed)
+            plt.savefig(filename)
+
+        filename = os.path.join(output_dir, 'plots', 'parameter_evolution_%d.png' % seed)        
+        plt.savefig(filename)
+        plt.close(fig)
+
+        del fig
 
 
 if __name__ == '__main__':
@@ -400,29 +512,37 @@ if __name__ == '__main__':
 
     GEN_PDF = args.generate_pdf
 
-    smac_folder = None
+    SMAC_OUTPUT = list()
     for item in os.listdir(args.input_dir):
-        if 'smac' in item:
+        if 'smac3-output' in item:
             if os.path.isdir(os.path.join(args.input_dir, item)):
-                smac_folder = os.path.join(args.input_dir, item)
+                SMAC_OUTPUT.append(dict(folder=os.path.join(args.input_dir, item)))
 
-    if smac_folder is None:
-        raise Exception('No SMAC output folder found')
+    if len(SMAC_OUTPUT) == 0:
+        raise Exception('No SMAC output folder found')    
 
-    print('SMAC RESULTS FOLDER=', smac_folder)
+    for i in range(len(SMAC_OUTPUT)):
+        for item, tag in zip(
+            ['traj_aclib2.json', 'runhistory.json', 'stats.json', 'scenario.txt'], 
+            ['output_file', 'history', 'stats', 'scenario']):
+            for f in os.listdir(SMAC_OUTPUT[i]['folder']):
+                if f == item:
+                    smac_file = os.path.join(SMAC_OUTPUT[i]['folder'], item)
+                    break
+                if os.path.isdir(os.path.join(SMAC_OUTPUT[i]['folder'], f)):
+                    for a in os.listdir(os.path.join(SMAC_OUTPUT[i]['folder'], f)):
+                        if a == item:
+                            smac_file = os.path.join(SMAC_OUTPUT[i]['folder'], f, a)
+                            break
+            if not os.path.isfile(smac_file):
+                raise Exception('SMAC output file not found=' + smac_file)
+            SMAC_OUTPUT[i][tag] = smac_file
 
-    for f in os.listdir(smac_folder):
-        if f == 'traj_aclib2.json':
-            smac_file = os.path.join(smac_folder, 'traj_aclib2.json')
-            break
-        if os.path.isdir(os.path.join(smac_folder, f)):
-            for a in os.listdir(os.path.join(smac_folder, f)):
-                if a == 'traj_aclib2.json':
-                    smac_file = os.path.join(smac_folder, f, a)
-    if not os.path.isfile(smac_file):
-        raise Exception('SMAC output file not found')
-
-    print('SMAC OUTPUT FILE=', smac_file)
+    print('# SMAC folders=' + str(len(SMAC_OUTPUT)))
+    for i in range(len(SMAC_OUTPUT)):
+        print('\t %d' % i)
+        for tag in SMAC_OUTPUT[i]:         
+            print('\t\t %s=%s' % (tag, SMAC_OUTPUT[i][tag]))
 
     if not os.path.isdir(args.output_dir):
         os.makedirs(args.output_dir)
@@ -457,29 +577,94 @@ if __name__ == '__main__':
 
     result_folders = dict()
 
-    smac_results = list()
-    with open(smac_file, 'r') as s_file:
-        for line in s_file:
-            smac_results.append(line)
+    print('Opening SMAC incumbents information')
+    INCUMBENTS['initial'] = None
+    INCUMBENTS['optimal'] = None
+    for i in range(len(SMAC_OUTPUT)):
+        print('Processing folder=' + SMAC_OUTPUT[i]['folder'])
+        smac_results = list()        
+        print('\t- %d' % i)
+        with open(SMAC_OUTPUT[i]['output_file'], 'r') as s_file:
+            SMAC_OUTPUT[i]['incumbents'] = list()
+            counter = 0
+            for line in s_file:
+                SMAC_OUTPUT[i]['incumbents'].append(json.loads(line))                                
 
+                print('\t\t - %d (%d) = %.6f' % (counter, SMAC_OUTPUT[i]['incumbents'][-1]['evaluations'], SMAC_OUTPUT[i]['incumbents'][-1]['cost']))      
+
+                # Exclude first incumbent, it is stored, but before any simulation is done
+                if counter > 0:
+                    # Store incumbent
+                    parsed_params = dict()
+
+                    for item in SMAC_OUTPUT[i]['incumbents'][-1]['incumbent']:                            
+                        tag, value = item.split('=')
+                        parsed_params[tag] = float(value[1:-1])
+
+                    opt_config.parse_input(parsed_params)
+
+                    inc_dir = os.path.join(args.output_dir, 'incumbents', str(i))
+                    if not os.path.isdir(inc_dir):
+                        os.makedirs(inc_dir) 
+
+                    inc_data = dict(cost=float(SMAC_OUTPUT[i]['incumbents'][-1]['cost']), params=dict())                
+                    inc_data['params'] = opt_config.params
+
+                    with open(os.path.join(inc_dir, 'inc_{}.yml'.format(counter)), 'w') as i_file:
+                        yaml.safe_dump(inc_data, i_file, default_flow_style=False)
+
+                    if INCUMBENTS['initial'] is None:
+                        INCUMBENTS['initial'] = SMAC_OUTPUT[i]['incumbents'][-1]
+                    else:
+                        if SMAC_OUTPUT[i]['incumbents'][-1]['cost'] > INCUMBENTS['initial']['cost']:
+                            INCUMBENTS['initial'] = SMAC_OUTPUT[i]['incumbents'][-1]
+
+                    if INCUMBENTS['optimal'] is None:
+                        INCUMBENTS['optimal'] = SMAC_OUTPUT[i]['incumbents'][-1]
+                    else:
+                        if SMAC_OUTPUT[i]['incumbents'][-1]['cost'] < INCUMBENTS['optimal']['cost']:
+                            INCUMBENTS['optimal'] = SMAC_OUTPUT[i]['incumbents'][-1]
+
+                counter += 1        
+            
+        with open(SMAC_OUTPUT[i]['stats']) as s_file:
+            SMAC_OUTPUT[i]['stats'] = json.loads(s_file.readline())
+
+        print(SMAC_OUTPUT[i]['stats'])    
+
+    print('Initial incumbent=')
+    print(INCUMBENTS['initial'])
+
+    print('Optimal incumbent=')
+    print(INCUMBENTS['optimal'])
+    
     ########################################################################
     # Plot SMAC costs
     ########################################################################
-    plot_cost(smac_file, args.output_dir)
+    plot_cost(args.output_dir)    
+    
+    plot_best_incumbent(args.input_dir, args.output_dir)    
 
     ########################################################################
     # Plot error and trajectories
     ########################################################################
 
-    # Simulate the scenario with the initial parameters
-    result_folders[0] = run_simulation(1, smac_results, args.output_dir)
+    # Simulate partial results
+    # for i in range(len(SMAC_OUTPUT)):
+    #     print(SMAC_OUTPUT[i]['incumbents'])
+    #     for inc in SMAC_OUTPUT[i]['incumbents']:
+    #         run_simulation(inc, os.path.join(args.output_dir, 'partial_results', str(i)))
 
-    # Simulate the scenario with the optimal parameters
-    result_folders[len(smac_results) - 1] = run_simulation(
-        len(smac_results) - 1, smac_results, args.output_dir)
+    # Simulate the scenario with the initial parameters    
+    for tag in INCUMBENTS:
+        result_folders[0 if tag == 'initial' else 1] = run_simulation(INCUMBENTS[tag], os.path.join(args.output_dir, tag))    
+
+    for item in ['initial', 'optimal']:
+        print(item)
+        print('\t - ' + str(INCUMBENTS[item]))
 
     plot_trajectories(result_folders, args.output_dir)
-    plot_position_heading_error(result_folders, args.output_dir)
+    plot_position_heading_error(result_folders, args.output_dir)    
 
     # Cleaning up
     for task in opt_config.tasks:
@@ -524,9 +709,10 @@ if __name__ == '__main__':
         r_file.write('\n')
 
         task_results = get_task_results(result_folders, task)
+        idx = np.min(task_results.keys())
         launch_file = None
         catkin_pkg = None
-        with open(os.path.join(task_results[0]['results_dir'], 'task.yml')) as t_file:
+        with open(os.path.join(task_results[idx]['results_dir'], 'task.yml')) as t_file:
             task = yaml.load(t_file)
 
         cmd = task['execute']['cmd'].split()
@@ -550,25 +736,14 @@ if __name__ == '__main__':
 
         r_file.write('![SMAC evolution]({}/plots/smac_evolution.png)\n\n'.format(args.output_dir))
 
-        cost = list()
-        evals = list()
-        wallclock_time = list()
-        with open(smac_file, 'r') as s_file:
-            for line in s_file:
-                smac_result = json.loads(line)
-                cost.append(smac_result['cost'])
-                evals.append(smac_result['evaluations'])
-                wallclock_time.append(smac_result['wallclock_time'])
-
-        cost[0] = cost[1]
-
         r_file.write('Description | Value\n')
-        r_file.write('--- | ---\n')
-        r_file.write('**# evaluations:** | %s\n' % evals[-1])
-        r_file.write('**Total time:** | {}\n'.format(wallclock_time[-1]))
-        r_file.write('**Initial cost:** | {}\n'.format(cost[0]))
-        r_file.write('**Optimal cost:** | {}\n\n'.format(cost[-1]))
-
+        r_file.write('--- | ---\n')        
+        r_file.write('**# SMAC instances:** | {}\n\n'.format(len(SMAC_OUTPUT)))        
+        r_file.write('**# evaluations:** | {}\n'.format(str([item['stats']['ta_runs'] for item in SMAC_OUTPUT])))
+        r_file.write('**Walltime [s]:** | {}\n\n'.format(str([item['stats']['wallclock_time_used'] for item in SMAC_OUTPUT])))
+        r_file.write('**Initial cost:** | {}\n'.format(INCUMBENTS['initial']['cost']))
+        r_file.write('**Optimal cost:** | {}\n\n'.format(INCUMBENTS['optimal']['cost']))
+        
         r_file.write('### Cost function\n\n')
 
         r_file.write('KPI | Weight\n')
@@ -593,14 +768,15 @@ if __name__ == '__main__':
         r_file.write('### Initial parameter set\n\n')
 
         task_results = get_task_results(result_folders, opt_config.tasks[0])
+        idx = np.min(task_results.keys())
 
-        with open(os.path.join(task_results[0]['results_dir'], 'params_0.yml')) as p_file:
+        with open(os.path.join(task_results[idx]['results_dir'], 'params_0.yml')) as p_file:
             r_file.write('```yaml\n')
             for line in p_file:
                 r_file.write(line)
             r_file.write('```\n\n')
 
-        with open(os.path.join(task_results[0]['results_dir'], 'params_0.yml')) as p_file:
+        with open(os.path.join(task_results[idx]['results_dir'], 'params_0.yml')) as p_file:
             params = yaml.load(p_file)
             r_file.write('**`roslaunch` input:** \n`')
             for k in params:
@@ -611,7 +787,7 @@ if __name__ == '__main__':
 
         r_file.write('### Optimal parameter set\n\n')
 
-        idx = task_results.keys()[-1]
+        idx = np.max(task_results.keys())
         with open(os.path.join(task_results[idx]['results_dir'], 'params_0.yml')) as p_file:
             r_file.write('```yaml\n')
             for line in p_file:
@@ -650,7 +826,8 @@ if __name__ == '__main__':
 
             r_file.write('#### Initial parameter set\n\n')
 
-            with open(os.path.join(args.output_dir, task_results[0]['results_dir'], 'computed_kpis.yaml')) as c_file:
+            idx = np.min(task_results.keys())
+            with open(os.path.join(args.output_dir, task_results[idx]['results_dir'], 'computed_kpis.yaml')) as c_file:
                 kpis = yaml.load(c_file)
 
                 r_file.write('KPI | Value\n')
@@ -659,23 +836,23 @@ if __name__ == '__main__':
                     r_file.write('{} | {}\n'.format(k, kpis[k]))
                 r_file.write('\n')
 
-            with open(os.path.join(task_results[0]['results_dir'], 'smac_result.yaml')) as p_file:
+            with open(os.path.join(task_results[idx]['results_dir'], 'smac_result.yaml')) as p_file:
                 r_file.write('**smac_result.yaml**\n\n')
                 r_file.write('```yaml\n')
                 for line in p_file:
                     r_file.write(line)
                 r_file.write('```\n\n')
 
-            with open(os.path.join(task_results[0]['results_dir'], 'task.yml')) as p_file:
+            with open(os.path.join(task_results[idx]['results_dir'], 'task.yml')) as p_file:
                 r_file.write('**task.yml**\n\n')
                 r_file.write('```yaml\n')
                 for line in p_file:
                     r_file.write(line)
                 r_file.write('```\n\n')
 
-            for fp in os.listdir(task_results[0]['results_dir']):
+            for fp in os.listdir(task_results[idx]['results_dir']):
                 if 'penalty_fcn' in fp and '.yaml' in fp:
-                    with open(os.path.join(task_results[0]['results_dir'], fp)) as p_file:
+                    with open(os.path.join(task_results[idx]['results_dir'], fp)) as p_file:
                         r_file.write('**%s**\n\n' % fp)
                         r_file.write('```yaml\n')
                         for line in p_file:
@@ -684,7 +861,7 @@ if __name__ == '__main__':
 
             r_file.write('#### Optimal parameter set\n\n')
 
-            idx = task_results.keys()[-1]
+            idx = np.max(task_results.keys())
             with open(os.path.join(args.output_dir, task_results[idx]['results_dir'], 'computed_kpis.yaml')) as c_file:
                 kpis = yaml.load(c_file)
 

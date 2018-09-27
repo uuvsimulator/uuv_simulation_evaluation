@@ -16,5 +16,5 @@
 from opt_configuration import OptConfiguration
 from simulation_pool import N_SIMULATION_RUNS, N_CRASHES, N_SUCCESS, \
     run_simulation, start_simulation_pool, stop_simulation_pool
-from utils import SIMULATION_LOGGER, init_logger, parse_smac_input, \
+from utils import SIMULATION_LOGGER, init_logger, parse_param_input, \
     SIM_SUCCESS, SIM_CRASHED

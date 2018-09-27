@@ -17,7 +17,7 @@ import rospy
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from simulation_data import SimulationData
+from simulation_data import SimulationData, COLOR_RED, COLOR_GREEN, COLOR_BLUE
 import uuv_bag_evaluation.error 
 from uuv_trajectory_generator import TrajectoryGenerator, TrajectoryPoint
 
@@ -27,30 +27,6 @@ class ErrorData(SimulationData):
 
     def __init__(self, bag):
         super(ErrorData, self).__init__(message_type='uuv_control_msgs/TrajectoryPoint')
-
-        self._plot_configs = dict(errors=dict(
-                                    figsize=[12, 5],
-                                    linewidth=2,
-                                    label_fontsize=20,
-                                    xlim=None,
-                                    ylim=None,
-                                    zlim=None,
-                                    tick_labelsize=18,
-                                    labelpad=10,
-                                    legend=dict(
-                                        loc='upper right',
-                                        fontsize=18)),
-                                 error_dist=dict(figsize=[12, 5],
-                                    linewidth=3,
-                                    label_fontsize=30,
-                                    xlim=None,
-                                    ylim=None,
-                                    zlim=None,
-                                    tick_labelsize=25,
-                                    labelpad=10,
-                                    legend=dict(
-                                        loc='upper right',
-                                        fontsize=18)))
 
         for x in bag.get_type_and_topic_info():
             for k in x:
@@ -67,10 +43,51 @@ class ErrorData(SimulationData):
                 self._recorded_data['error'].add_trajectory_point_from_msg(msg)
             self._logger.info('%s=loaded' % self._topic_name)
         except Exception as e:
-            self._logger.error('Error retrieving error data from rosbag, message=' + str(e))
+            self._logger.warning('Error retrieving error data from rosbag, message=' + str(e))
             self._recorded_data['error'] = None
 
         self._error_set = None
+
+    def get_as_dataframe(self, add_group_name=None):
+        try:
+            import pandas
+
+            # Create error set object
+            if self._error_set is None:
+                self._error_set = uuv_bag_evaluation.error.ErrorSet.get_instance()
+
+            data = dict()
+            data['time'] = self._error_set.get_time()            
+
+            for tag in self._error_set.get_tags():
+                if tag == 'cross_track':
+                    continue
+                elif tag in ['position', 'linear_velocity', 'angular_velocity', 'quaternion']:
+                    data[tag + '_x'] = [x[0] for x in self._error_set.get_data(tag)]
+                    data[tag + '_y'] = [x[1] for x in self._error_set.get_data(tag)]
+                    data[tag + '_z'] = [x[2] for x in self._error_set.get_data(tag)]
+                else:
+                    data[tag] = self._error_set.get_data(tag)
+
+            if add_group_name is not None:
+                data['group'] = [add_group_name for _ in range(len(data['time']))]            
+
+            df_error = pandas.DataFrame(data)
+
+            data = dict()
+            data[tag + 'cross_track_time'] = self._error_set.get_time('desired')
+            data[tag + 'cross_track'] = self._error_set.get_data('cross_track')
+            
+            if add_group_name is not None:
+                data['group'] = [add_group_name for _ in range(len(data['time']))]
+
+            df_error_ct = pandas.DataFrame(data)
+
+            return dict(error=df_error, error_cross_track=df_error_ct)
+
+        except Exception as ex:
+            self._logger.error('Error while exporting as pandas.DataFrame, message=' + str(ex))
+            return None
 
     @property
     def error(self):
@@ -81,8 +98,6 @@ class ErrorData(SimulationData):
             self._logger.error('Invalid output directory, dir=' + str(output_dir))
             raise rospy.ROSException('Invalid output directory')
         
-        fig = plt.figure(figsize=(self._plot_configs['errors']['figsize'][0],
-                                  2 * self._plot_configs['errors']['figsize'][1]))
         try:
             # Create error set object
             self._error_set = uuv_bag_evaluation.error.ErrorSet.get_instance()
@@ -98,32 +113,75 @@ class ErrorData(SimulationData):
 
             t = self._error_set.get_time()
             
-            ax = fig.add_subplot(211)
-            ax.set_title('Position error', fontsize=20)
-            ax.plot(t, self._error_set.get_data('x'), 'r', label=r'$X$')
-            ax.plot(t, self._error_set.get_data('y'), 'g', label=r'$Y$')
-            ax.plot(t, self._error_set.get_data('z'), 'b', label=r'$Z$')
-            ax.legend(fancybox=True, framealpha=0.9, loc='upper right', fontsize=18)
-            ax.grid(True)
-            ax.tick_params(axis='both', labelsize=16)
-            ax.set_xlabel('Time [s]', fontsize=18)
-            ax.set_ylabel('Error [m]', fontsize=18)
-            ax.set_xlim(np.min(t), np.max(t))
+            fig = self.get_figure()        
+            ax = fig.gca()
+            
+            ax.plot(
+                t, 
+                self._error_set.get_data('x'), 
+                color=COLOR_RED, 
+                label=r'$X$',
+                linewidth=self._plot_configs['linewidth'])
+            ax.plot(
+                t, 
+                self._error_set.get_data('y'), 
+                color=COLOR_GREEN, 
+                label=r'$Y$',
+                linewidth=self._plot_configs['linewidth'])
+            ax.plot(
+                t, 
+                self._error_set.get_data('z'), 
+                color=COLOR_BLUE, 
+                label=r'$Z$',
+                linewidth=self._plot_configs['linewidth'])
+            
+            self.config_2dplot(
+                ax=ax,
+                title='Position error',
+                xlabel='Time [s]',
+                ylabel='Error [m]',
+                legend_on=True)  
 
-            ax = fig.add_subplot(212)
-            ax.set_title('Orientation error', fontsize=20)
-            ax.plot(t, self._error_set.get_data('roll'), 'r', label=r'$\phi$')
-            ax.plot(t, self._error_set.get_data('pitch'), 'g', label=r'$\theta$')
-            ax.plot(t, self._error_set.get_data('yaw'), 'b', label=r'$\psi$')
-            ax.legend(fancybox=True, framealpha=0.9, loc='upper right', fontsize=18)
-            ax.grid(True)
-            ax.tick_params(axis='both', labelsize=16)
-            ax.set_xlabel('Time [s]', fontsize=18)
-            ax.set_ylabel('Error [rad]', fontsize=18)
             ax.set_xlim(np.min(t), np.max(t))
 
             plt.tight_layout()
-            plt.savefig(os.path.join(output_path, 'errors_pose.pdf'))
+            plt.savefig(os.path.join(output_path, 'errors_position.pdf'))
+            plt.close(fig)
+            del fig
+
+            fig = self.get_figure()        
+            ax = fig.gca()
+            
+            ax.plot(
+                t, 
+                self._error_set.get_data('roll'), 
+                color=COLOR_RED, 
+                label=r'$\phi$',
+                linewidth=self._plot_configs['linewidth'])
+            ax.plot(
+                t, 
+                self._error_set.get_data('pitch'), 
+                color=COLOR_GREEN, 
+                label=r'$\theta$',
+                linewidth=self._plot_configs['linewidth'])
+            ax.plot(
+                t, 
+                self._error_set.get_data('yaw'), 
+                color=COLOR_BLUE, 
+                label=r'$\psi$',
+                linewidth=self._plot_configs['linewidth'])
+            
+            ax.set_xlim(np.min(t), np.max(t))
+
+            self.config_2dplot(
+                ax=ax,
+                title='Orientation error',
+                xlabel='Time [s]',
+                ylabel='Error [rad]',
+                legend_on=True)  
+
+            plt.tight_layout()
+            plt.savefig(os.path.join(output_path, 'errors_orientation.pdf'))
             plt.close(fig)
             del fig
         except Exception as e:
@@ -131,60 +189,67 @@ class ErrorData(SimulationData):
             plt.close(fig)
             del fig
 
-        fig = plt.figure(figsize=(self._plot_configs['error_dist']['figsize'][0],
-                                  2 * self._plot_configs['error_dist']['figsize'][1]))
         try:
             output_path = (self._output_dir if output_dir is None else output_dir)
             
-            ax = fig.add_subplot(211)
+            fig = self.get_figure()        
+            ax = fig.gca()
 
             error = np.sqrt([e.dot(e) for e in self._error_set.get_data('position')]) 
 
             # self.add_disturbance_activation_spans(ax, 0, error.max())
 
             t = self._error_set.get_time()
-            ax.plot(t, error, color='#003300',
-                    linewidth=self._plot_configs['error_dist']['linewidth'],
-                    label=r'Euc. position error')
+            ax.plot(
+                t, 
+                error, 
+                linewidth=self._plot_configs['linewidth'],
+                color=COLOR_RED, 
+                label=r'Euc. position error')
 
-            ax.grid(True)
-            ax.legend(loc=self._plot_configs['error_dist']['legend']['loc'],
-                      fontsize=self._plot_configs['error_dist']['legend']['fontsize'])
-            ax.tick_params(axis='both',
-                           labelsize=self._plot_configs['error_dist']['tick_labelsize'])
-            ax.set_xlabel('Time [s]',
-                          fontsize=self._plot_configs['error_dist']['label_fontsize'])
-            ax.set_ylabel('Euc. position error [m]',
-                          fontsize=self._plot_configs['error_dist']['label_fontsize'])
             ax.set_xlim(np.min(t), np.max(t))
             ax.set_ylim(0, np.max(error) * 1.05)
 
+            self.config_2dplot(
+                ax=ax,
+                title='',
+                xlabel='Time [s]',
+                ylabel='Euc. position error [m]',
+                legend_on=False)  
+
+            plt.tight_layout()
+            plt.savefig(os.path.join(output_path, 'error_euc_position.pdf'))
+            plt.close(fig)
+            del fig
+
             # Plot heading error
-            ax = fig.add_subplot(212)
+            fig = self.get_figure()        
+            ax = fig.gca()
 
             error = self._error_set.get_data('yaw')
 
             # self.add_disturbance_activation_spans(ax, np.min(error), np.max(error))
 
             t = self._error_set.get_time()
-            ax.plot(t, error, color='#003300',
-                    linewidth=self._plot_configs['error_dist']['linewidth'],
-                    label='Heading error')
+            ax.plot(
+                t, 
+                error, 
+                color=COLOR_RED,
+                linewidth=self._plot_configs['linewidth'],
+                label='Heading error')
 
-            ax.grid(True)
-            ax.legend(loc=self._plot_configs['error_dist']['legend']['loc'],
-                      fontsize=self._plot_configs['error_dist']['legend']['fontsize'])
-            ax.tick_params(axis='both',
-                           labelsize=self._plot_configs['error_dist']['tick_labelsize'])
-            ax.set_xlabel('Time [s]',
-                          fontsize=self._plot_configs['error_dist']['label_fontsize'])
-            ax.set_ylabel('Heading error [rad]',
-                          fontsize=self._plot_configs['error_dist']['label_fontsize'])
             ax.set_xlim(np.min(t), np.max(t))
             ax.set_ylim(- np.pi, np.pi)
 
+            self.config_2dplot(
+                ax=ax,
+                title='',
+                xlabel='Time [s]',
+                ylabel='Heading error [rad]',
+                legend_on=False)            
+
             plt.tight_layout()
-            plt.savefig(os.path.join(output_path, 'error_pos_heading.pdf'))
+            plt.savefig(os.path.join(output_path, 'error_heading.pdf'))
             plt.close(fig)
             del fig
         except Exception as e:
@@ -192,80 +257,79 @@ class ErrorData(SimulationData):
             plt.close(fig)
             del fig
 
-        fig = plt.figure(figsize=(self._plot_configs['errors']['figsize'][0],
-                                  2 * self._plot_configs['errors']['figsize'][1]))
-        try:
-            ##################################################################################
-            # Plotting position and orientation errors
-            ##################################################################################
-            output_path = (self._output_dir if output_dir is None else output_dir)
-
-            t = self._error_set.get_time()            
-            ax = fig.add_subplot(211)
-            ax.set_title('Position error', fontsize=20)
-            ax.plot(t, self._error_set.get_data('x'), 'r', label=r'$X$')
-            ax.plot(t, self._error_set.get_data('y'), 'g', label=r'$Y$')
-            ax.plot(t, self._error_set.get_data('z'), 'b', label=r'$Z$')
-            ax.legend(fancybox=True, framealpha=0.9, loc='upper right', fontsize=18)
-            ax.grid(True)
-            ax.tick_params(axis='both', labelsize=16)
-            ax.set_xlabel('Time [s]', fontsize=18)
-            ax.set_ylabel('Error [m]', fontsize=18)
-            ax.set_xlim(np.min(t), np.max(t))
-
-            ax = fig.add_subplot(212)
-            ax.set_title('Orientation error', fontsize=20)
-            ax.plot(t, self._error_set.get_data('roll'), 'r', label=r'$\phi$')
-            ax.plot(t, self._error_set.get_data('pitch'), 'g', label=r'$\theta$')
-            ax.plot(t, self._error_set.get_data('yaw'), 'b', label=r'$\psi$')
-            ax.legend(fancybox=True, framealpha=0.9, loc='upper right', fontsize=18)
-            ax.grid(True)
-            ax.tick_params(axis='both', labelsize=16)
-            ax.set_xlabel('Time [s]', fontsize=18)
-            ax.set_ylabel('Error [rad]', fontsize=18)
-            ax.set_xlim(np.min(t), np.max(t))
-            
-            plt.tight_layout()
-            plt.savefig(os.path.join(output_path, 'errors_pose.pdf'))
-            plt.close(fig)
-            del fig
-        except Exception as e:
-            self._logger.error('Error while plotting pose errors, message=' + str(e))
-            plt.close(fig)
-            del fig
-
-        fig = plt.figure(figsize=(self._plot_configs['errors']['figsize'][0],
-                                  2 * self._plot_configs['errors']['figsize'][1]))
         try:
             ##################################################################################
             # Plotting velocity errors
             ##################################################################################                        
-            ax = fig.add_subplot(211)
-            ax.set_title('Linear velocity error', fontsize=20)
-            ax.plot(t, [e[0] for e in self._error_set.get_data('linear_velocity')], 'r', label=r'$\dot{X}$')
-            ax.plot(t, [e[1] for e in self._error_set.get_data('linear_velocity')], 'g', label=r'$\dot{Y}$')
-            ax.plot(t, [e[2] for e in self._error_set.get_data('linear_velocity')], 'b', label=r'$\dot{Z}$')
-            ax.legend(fancybox=True, framealpha=0.9, loc='upper right', fontsize=18)
-            ax.grid(True)
-            ax.tick_params(axis='both', labelsize=16)
-            ax.set_xlabel('Time [s]', fontsize=18)
-            ax.set_ylabel('Error [m/s]', fontsize=18)
-            ax.set_xlim(np.min(t), np.max(t))
+            fig = self.get_figure()        
+            ax = fig.gca()
 
-            ax = fig.add_subplot(212)
-            ax.set_title('Angular velocity error', fontsize=20)
-            ax.plot(t, [e[0] for e in self._error_set.get_data('angular_velocity')], 'r', label=r'$\omega_x$')
-            ax.plot(t, [e[1] for e in self._error_set.get_data('angular_velocity')], 'g', label=r'$\omega_y$')
-            ax.plot(t, [e[2] for e in self._error_set.get_data('angular_velocity')], 'b', label=r'$\omega_z$')
-            ax.legend(fancybox=True, framealpha=0.9, loc='upper right', fontsize=18)
-            ax.grid(True)
-            ax.tick_params(axis='both', labelsize=16)
-            ax.set_xlabel('Time [s]', fontsize=18)
-            ax.set_ylabel('Error [rad/s]', fontsize=18)
+            ax.plot(
+                t, 
+                [e[0] for e in self._error_set.get_data('linear_velocity')], 
+                label=r'$\dot{X}$',
+                linewidth=self._plot_configs['linewidth'],
+                color=COLOR_RED)
+            ax.plot(
+                t, 
+                [e[1] for e in self._error_set.get_data('linear_velocity')], 
+                label=r'$\dot{Y}$',
+                linewidth=self._plot_configs['linewidth'],
+                color=COLOR_GREEN)
+            ax.plot(
+                t, 
+                [e[2] for e in self._error_set.get_data('linear_velocity')], 
+                label=r'$\dot{Z}$',
+                linewidth=self._plot_configs['linewidth'],
+                color=COLOR_BLUE)
+            
+            self.config_2dplot(
+                ax=ax,
+                title='',
+                xlabel='Time [s]',
+                ylabel='Error [m/s]',
+                legend_on=True)
+
             ax.set_xlim(np.min(t), np.max(t))
 
             plt.tight_layout()
-            plt.savefig(os.path.join(output_path, 'errors_vel.pdf'))
+            plt.savefig(os.path.join(output_path, 'errors_lin_vel.pdf'))
+            plt.close(fig)
+            del fig
+
+            fig = self.get_figure()        
+            ax = fig.gca()
+
+            ax.plot(
+                t, 
+                [e[0] for e in self._error_set.get_data('angular_velocity')], 
+                label=r'$\omega_x$',
+                linewidth=self._plot_configs['linewidth'],
+                color=COLOR_RED)
+            ax.plot(
+                t, 
+                [e[1] for e in self._error_set.get_data('angular_velocity')], 
+                label=r'$\omega_y$',
+                linewidth=self._plot_configs['linewidth'],
+                color=COLOR_GREEN)
+            ax.plot(
+                t, 
+                [e[2] for e in self._error_set.get_data('angular_velocity')], 
+                label=r'$\omega_z$',
+                linewidth=self._plot_configs['linewidth'],
+                color=COLOR_BLUE)
+            
+            ax.set_xlim(np.min(t), np.max(t))
+
+            self.config_2dplot(
+                ax=ax,
+                title='',
+                xlabel='Time [s]',
+                ylabel='Error [rad/s]',
+                legend_on=True)
+
+            plt.tight_layout()
+            plt.savefig(os.path.join(output_path, 'errors_ang_vel.pdf'))
             plt.close(fig)
             del fig
         except Exception as e:
@@ -273,24 +337,40 @@ class ErrorData(SimulationData):
             plt.close(fig)
             del fig
         
-        fig = plt.figure(figsize=(self._plot_configs['errors']['figsize'][0],
-                                  self._plot_configs['errors']['figsize'][1]))
         try:    
             ##################################################################################
             # Plotting quaternion vector errors
             ##################################################################################
 
             t = self._error_set.get_time()            
-            ax = fig.add_subplot(111)
-            ax.set_title('Quaternion orientation error', fontsize=20)
-            ax.plot(t, [e[0] for e in self._error_set.get_data('quaternion')], 'r', label=r'$\epsilon_x$')
-            ax.plot(t, [e[1] for e in self._error_set.get_data('quaternion')], 'g', label=r'$\epsilon_y$')
-            ax.plot(t, [e[2] for e in self._error_set.get_data('quaternion')], 'b', label=r'$\epsilon_z$')
-            ax.legend(fancybox=True, framealpha=1, loc='upper right', fontsize=18)
-            ax.grid(True)
-            ax.tick_params(axis='both', labelsize=16)
-            ax.set_xlabel('Time [s]', fontsize=18)
-            ax.set_ylabel('Error', fontsize=18)
+            fig = self.get_figure()        
+            ax = fig.gca()
+
+            ax.plot(
+                t, 
+                [e[0] for e in self._error_set.get_data('quaternion')], 
+                label=r'$\epsilon_x$',
+                linewidth=self._plot_configs['linewidth'],
+                color=COLOR_RED)
+            ax.plot(
+                t, 
+                [e[1] for e in self._error_set.get_data('quaternion')], 
+                label=r'$\epsilon_y$',
+                linewidth=self._plot_configs['linewidth'],
+                color=COLOR_GREEN)
+            ax.plot(
+                t, 
+                [e[2] for e in self._error_set.get_data('quaternion')], 
+                label=r'$\epsilon_z$',
+                linewidth=self._plot_configs['linewidth'],
+                color=COLOR_BLUE)
+
+            self.config_2dplot(
+                ax=ax,
+                title='',
+                xlabel='Time [s]',
+                ylabel='Error',
+                legend_on=True)
             ax.set_xlim(np.min(t), np.max(t))
 
             plt.tight_layout()
@@ -302,8 +382,6 @@ class ErrorData(SimulationData):
             plt.close(fig)
             del fig
 
-        fig = plt.figure(figsize=(self._plot_configs['errors']['figsize'][0],
-                                  self._plot_configs['errors']['figsize'][1]))
         try:    
             ##################################################################################
             # Plotting cross-track errors
@@ -311,13 +389,24 @@ class ErrorData(SimulationData):
 
             t = self._error_set.get_time('desired')
             
-            ax = fig.add_subplot(111)
-            ax.set_title('Cross-track error', fontsize=20)
-            ax.plot(t, self._error_set.get_data('cross_track'), 'r')
-            ax.grid(True)
-            ax.tick_params(axis='both', labelsize=16)
-            ax.set_xlabel('Time [s]', fontsize=18)
-            ax.set_ylabel('Error [m]', fontsize=18)
+            fig = self.get_figure()        
+            ax = fig.gca()
+
+            ax.set_title(
+                'Cross-track error', 
+                fontsize=self._plot_configs['title_fontsize'])
+            ax.plot(
+                t, 
+                self._error_set.get_data('cross_track'), 
+                linewidth=self._plot_configs['linewidth'],
+                color=COLOR_RED)
+            self.config_2dplot(
+                ax=ax,
+                title='',
+                xlabel='Time [s]',
+                ylabel='Error [m]',
+                legend_on=False)
+            
             ax.set_xlim(np.min(t), np.max(t))
 
             plt.tight_layout()

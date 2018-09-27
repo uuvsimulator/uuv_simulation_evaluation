@@ -17,7 +17,7 @@ import rospy
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from simulation_data import SimulationData
+from simulation_data import SimulationData, COLOR_RED
 
 
 class SalinityData(SimulationData):
@@ -25,19 +25,6 @@ class SalinityData(SimulationData):
 
     def __init__(self, bag):
         super(SalinityData, self).__init__()
-        
-        self._plot_configs = dict(salinity=dict(
-                                    figsize=[12, 5],
-                                    linewidth=2,
-                                    label_fontsize=30,
-                                    xlim=None,
-                                    ylim=None,
-                                    zlim=None,
-                                    tick_labelsize=25,
-                                    labelpad=10,
-                                    legend=dict(
-                                        loc='upper right',
-                                        fontsize=25)))
 
         self._unit = None
         for x in bag.get_type_and_topic_info():
@@ -63,29 +50,53 @@ class SalinityData(SimulationData):
         except Exception as e:
             self._logger.error('Error reading salinity topic, message=' + str(e))
 
+    def get_as_dataframe(self, add_group_name=None):
+        try:
+            import pandas
+
+            if len(self._recorded_data['salinity']) == 0:
+                return None
+                
+            data = dict()
+            data[self.LABEL + '_time'] = self._time
+            data[self.LABEL + '_salinity'] = self._recorded_data['salinity']
+
+            if add_group_name is not None:
+                data['group'] = [add_group_name for _ in range(len(self._time))]
+
+            return pandas.DataFrame(data)
+
+        except Exception as ex:
+            print('Error while exporting as pandas.DataFrame, message=' + str(ex))
+            return None
+
     def plot(self, output_dir):
         if not os.path.isdir(output_dir):
             self._logger.error('Invalid output directory, dir=' + str(output_dir))
             raise Exception('Invalid output directory')
 
-        fig = plt.figure(figsize=(self._plot_configs['salinity']['figsize'][0],
-                                  self._plot_configs['salinity']['figsize'][1]))
+        fig = self.get_figure()
         try:
             output_path = (self._output_dir if output_dir is None else output_dir)
             
             ax = fig.add_subplot(111)
 
-            ax.plot(self._time, self._recorded_data['salinity'], 'r', label=r'Salinity [%s]' % self._unit,
-                    linewidth=self._plot_configs['salinity']['linewidth'])
-            ax.set_xlabel('Time [s]',
-                          fontsize=self._plot_configs['salinity']['label_fontsize'])
-            ax.set_ylabel(r'Salinity [%s]' % self._unit,
-                          fontsize=self._plot_configs['salinity']['label_fontsize'])
-            ax.tick_params(axis='both',
-                           labelsize=self._plot_configs['salinity']['tick_labelsize'])
-
+            ax.plot(
+                self._time, 
+                self._recorded_data['salinity'], 
+                color=COLOR_RED, 
+                label=r'Salinity [%s]' % self._unit,
+                linewidth=self._plot_configs['linewidth'])
+            
             ax.set_ylim([np.min(self._recorded_data['salinity']) - 0.1, 
                          np.max(self._recorded_data['salinity']) + 0.1])
+
+            self.config_2dplot(
+                ax=ax,
+                title='',
+                xlabel=r'Time [s]',
+                ylabel=r'Salinity [%s]' % self._unit,
+                legend_on=False)  
             
             ax.grid(True)
             plt.autoscale(enable=True, axis='x', tight=True)

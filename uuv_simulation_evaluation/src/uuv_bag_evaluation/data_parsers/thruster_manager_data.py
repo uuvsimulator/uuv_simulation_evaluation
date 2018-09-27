@@ -17,7 +17,7 @@ import rospy
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from simulation_data import SimulationData
+from simulation_data import SimulationData, COLOR_RED, COLOR_GREEN, COLOR_BLUE
 
 try:
     plt.rc('text', usetex=True)
@@ -30,18 +30,6 @@ class ThrusterManagerData(SimulationData):
 
     def __init__(self, bag):
         super(ThrusterManagerData, self).__init__()
-
-        self._plot_configs = dict(thruster_output=dict(
-                                    figsize=[12, 5],
-                                    linewidth=2,
-                                    label_fontsize=30,
-                                    xlim=None,
-                                    ylim=None,
-                                    zlim=None,
-                                    tick_labelsize=25,
-                                    labelpad=10,
-                                    legend=dict(loc='upper right',
-                                                fontsize=20)))
 
         for x in bag.get_type_and_topic_info():
             for k in x:
@@ -69,6 +57,29 @@ class ThrusterManagerData(SimulationData):
             self._recorded_data['force'] = None
             self._recorded_data['torque'] = None
 
+    def get_as_dataframe(self, add_group_name=None):
+        try:
+            import pandas
+            
+            data = dict()
+            data[self.LABEL + '_time'] = self._time
+            data[self.LABEL + '_force_x'] = [x[0] for x in self._recorded_data['force']]
+            data[self.LABEL + '_force_y'] = [x[1] for x in self._recorded_data['force']]
+            data[self.LABEL + '_force_z'] = [x[2] for x in self._recorded_data['force']]
+
+            data[self.LABEL + '_torque_x'] = [x[0] for x in self._recorded_data['torque']]
+            data[self.LABEL + '_torque_y'] = [x[1] for x in self._recorded_data['torque']]
+            data[self.LABEL + '_torque_z'] = [x[2] for x in self._recorded_data['torque']]
+
+            if add_group_name is not None:
+                data['group'] = [add_group_name for _ in range(len(self._time))]
+
+            return pandas.DataFrame(data)
+
+        except Exception as ex:
+            print('Error while exporting as pandas.DataFrame, message=' + str(ex))
+            return None
+
     def plot(self, output_dir):
         if not os.path.isdir(output_dir):
             self._logger.error('Invalid output directory, dir=' + str(output_dir))
@@ -76,8 +87,8 @@ class ThrusterManagerData(SimulationData):
 
         fig_tm, ax_tm = plt.subplots(
                 2, 1,
-                figsize=(self._plot_configs['thruster_output']['figsize'][0],
-                         2 * self._plot_configs['thruster_output']['figsize'][1]))
+                figsize=(self._plot_configs['figsize'][0],
+                         2 * self._plot_configs['figsize'][1]))
         try:
             ##############################################################################
             # Plot thruster manager input data
@@ -87,70 +98,90 @@ class ThrusterManagerData(SimulationData):
             min_y = 0
             max_y = 0
 
-            ax_tm[0].plot(self._time, [f[0] for f in self._recorded_data['force']],
-                            linewidth=self._plot_configs['thruster_output']['linewidth'],
-                            label=r'$X$')
+            ax_tm[0].plot(
+                self._time, 
+                [f[0] for f in self._recorded_data['force']],
+                color=COLOR_RED,
+                linewidth=self._plot_configs['linewidth'],
+                label=r'$X$')
+            
             min_y = min(min_y, np.min([f[0] for f in self._recorded_data['force']]))
             max_y = max(max_y, np.max([f[0] for f in self._recorded_data['force']]))
-            ax_tm[0].plot(self._time, [f[1] for f in self._recorded_data['force']],
-                            linewidth=self._plot_configs['thruster_output']['linewidth'],
-                            label=r'$Y$')
+            
+            ax_tm[0].plot(
+                self._time, 
+                [f[1] for f in self._recorded_data['force']],
+                color=COLOR_GREEN,
+                linewidth=self._plot_configs['linewidth'],
+                label=r'$Y$')
+            
             min_y = min(min_y, np.min([f[1] for f in self._recorded_data['force']]))
             max_y = max(max_y, np.max([f[1] for f in self._recorded_data['force']]))
-            ax_tm[0].plot(self._time, [f[2] for f in self._recorded_data['force']],
-                            linewidth=self._plot_configs['thruster_output']['linewidth'],
-                            label=r'$Z$')
+            
+            ax_tm[0].plot(
+                self._time, 
+                [f[2] for f in self._recorded_data['force']],
+                color=COLOR_BLUE,
+                linewidth=self._plot_configs['linewidth'],
+                label=r'$Z$')
+
             min_y = min(min_y, np.min([f[2] for f in self._recorded_data['force']]))
             max_y = max(max_y, np.max([f[2] for f in self._recorded_data['force']]))
 
-            ax_tm[0].set_xlabel(r'Time [s]',
-                                fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-            ax_tm[0].set_ylabel(r'Forces [N]',
-                                fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-            ax_tm[0].tick_params(axis='both',
-                                    labelsize=self._plot_configs['thruster_output']['tick_labelsize'])
-            ax_tm[0].grid(True)
             ax_tm[0].set_xlim(np.min(t), np.max(t))            
             ax_tm[0].set_ylim(min_y, max_y)
 
-            ax_tm[0].legend(fancybox=True, framealpha=1,
-                            loc=self._plot_configs['thruster_output']['legend']['loc'],
-                            fontsize=self._plot_configs['thruster_output']['legend']['fontsize'])
-
+            self.config_2dplot(
+                ax=ax_tm[0],
+                title='',
+                xlabel=r'Time [s]',
+                ylabel=r'Forces [N]',
+                legend_on=True)    
+            
             min_y = 0
             max_y = 0
 
-            ax_tm[1].plot(self._time, [x[0] for x in self._recorded_data['torque']],
-                            linewidth=self._plot_configs['thruster_output']['linewidth'],
-                            label=r'$K$')
+            ax_tm[1].plot(
+                self._time, 
+                [x[0] for x in self._recorded_data['torque']],
+                color=COLOR_RED,
+                linewidth=self._plot_configs['linewidth'],
+                label=r'$K$')
+
             min_y = min(min_y, np.min([x[0] for x in self._recorded_data['torque']]))
             max_y = max(max_y, np.max([x[0] for x in self._recorded_data['torque']]))
-            ax_tm[1].plot(self._time, [x[1] for x in self._recorded_data['torque']],
-                            linewidth=self._plot_configs['thruster_output']['linewidth'],
-                            label=r'$M$')
+            
+            ax_tm[1].plot(
+                self._time, 
+                [x[1] for x in self._recorded_data['torque']],
+                color=COLOR_GREEN,
+                linewidth=self._plot_configs['linewidth'],
+                label=r'$M$')
+                
             min_y = min(min_y, np.min([x[1] for x in self._recorded_data['torque']]))
             max_y = max(max_y, np.max([x[1] for x in self._recorded_data['torque']]))
-            ax_tm[1].plot(self._time, [x[2] for x in self._recorded_data['torque']],
-                            linewidth=self._plot_configs['thruster_output']['linewidth'],
-                            label=r'$N$')     
+
+            ax_tm[1].plot(
+                self._time, 
+                [x[2] for x in self._recorded_data['torque']],
+                color=COLOR_BLUE,
+                linewidth=self._plot_configs['linewidth'],
+                label=r'$N$')     
+
             min_y = min(min_y, np.min([x[2] for x in self._recorded_data['torque']]))
             max_y = max(max_y, np.max([x[2] for x in self._recorded_data['torque']]))               
             
-            ax_tm[1].set_xlabel(r'Time [s]',
-                                fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-            ax_tm[1].set_ylabel(r'Torques [Nm]',
-                                fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-            ax_tm[1].tick_params(axis='both',
-                                    labelsize=self._plot_configs['thruster_output']['tick_labelsize'])
-            ax_tm[1].grid(True)
             ax_tm[1].set_xlim(np.min(t), np.max(t))            
             ax_tm[1].set_ylim(min_y, max_y)
 
-            ax_tm[1].legend(fancybox=True, framealpha=1,
-                            loc=self._plot_configs['thruster_output']['legend']['loc'],
-                            fontsize=self._plot_configs['thruster_output']['legend']['fontsize'])
+            self.config_2dplot(
+                ax=ax_tm[1],
+                title='',
+                xlabel=r'Time [s]',
+                ylabel=r'Torques [Nm]',
+                legend_on=True)    
 
-            fig_tm.tight_layout()
+            plt.tight_layout()
             output_path = (self._output_dir if output_dir is None else output_dir)
             filename = os.path.join(output_path, 'thruster_manager_input.pdf')
             fig_tm.savefig(filename)

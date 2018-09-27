@@ -28,6 +28,7 @@ import numpy as np
 import logging
 import re
 import random
+import pandas as pd
 from time import sleep
 from uuv_smac_utils import OptConfiguration, start_simulation_pool, \
     stop_simulation_pool
@@ -108,6 +109,7 @@ if __name__ == '__main__':
     cost = dict()
     sim_time = dict()
     tasks_status = dict()
+    cost_fcn_data = dict()
 
     total_cost = 0.0
     status = None
@@ -131,7 +133,8 @@ if __name__ == '__main__':
                 cost[item['task']] = item['cost']
                 sim_time[item['task']] = item['sim_time']
                 tasks_status[item['task']] = item['status']
-                            
+                cost_fcn_data[item['task']] = item['cost_function_data']
+
             std_cost = np.std(cost.values())
             mean_cost = np.mean(cost.values())
             min_cost = np.min(cost.values())
@@ -149,19 +152,26 @@ if __name__ == '__main__':
             temp_cost = dict()
             temp_sim_time = dict()
             temp_tasks_status = dict()
+            temp_cost_fcn_data = dict()
             for task in cost:
                 if cost[task] - min_cost > 0.33 * std_cost and cv > 1:                
                     failed_tasks.append(task)
                     SMAC_WRAPPER_LOGGER.warning('Cost of task {} is much higher than 0.33 * standard deviation'.format(task))
                     SMAC_WRAPPER_LOGGER.warning('Scheduling task {} for a rerun, cost={}'.format(task, cost[task]))
+                elif cost[task] < 0.001:
+                    failed_tasks.append(task)
+                    SMAC_WRAPPER_LOGGER.warning('Cost of task {} is too low'.format(task))
+                    SMAC_WRAPPER_LOGGER.warning('Scheduling task {} for a rerun, cost={}'.format(task, cost[task]))
                 else:
                     temp_cost[task] = cost[task]
                     temp_sim_time[task] = sim_time[task]
                     temp_tasks_status[task] = tasks_status[task]
+                    temp_cost_fcn_data[task] = cost_fcn_data[task]
 
             cost = temp_cost
             sim_time = temp_sim_time
             tasks_status = temp_tasks_status
+            cost_fcn_data = temp_cost_fcn_data
 
             if len(failed_tasks) > 0:
                 SMAC_WRAPPER_LOGGER.info('Rerunning tasks that cause large deviations')
@@ -184,8 +194,7 @@ if __name__ == '__main__':
                     for i in range(len(rerun_output)):
                         item = rerun_output[i]
                         SMAC_WRAPPER_LOGGER.info(item['task'])
-                        SMAC_WRAPPER_LOGGER.info(item)
-
+                        
                         if item['status'] == 'CRASHED':
                             continue
 
@@ -195,17 +204,69 @@ if __name__ == '__main__':
                         cost[item['task']] = item['cost']
                         sim_time[item['task']] = item['sim_time']
                         tasks_status[item['task']] = item['status']
-                    
+                        cost_fcn_data[item['task']] = item['cost_function_data']
             
             total_time = sum(sim_time.values())
-            total_cost = sum([cost[i] * sim_time[i] / total_time for i in cost])
-            SMAC_WRAPPER_LOGGER.info('All costs: %.2f' % total_cost)
+            total_cost = OPT_CONFIG.evaluate_tasks(cost.values())
+            SMAC_WRAPPER_LOGGER.info('Final cost: %.2f' % total_cost)
+            SMAC_WRAPPER_LOGGER.info('Task evaluation function: %s' % OPT_CONFIG.tasks_eval_fcn)
 
             atoi = lambda a: int(a) if a.isdigit() else a
             natural_keys = lambda text: [atoi(c) for c in re.split('(\d+)', text)]            
             
             for i in sorted(cost.keys(), key=natural_keys):
                 SMAC_WRAPPER_LOGGER.info('\t%s - Cost=%.2f - Timeout=%.2f s' % (i, cost[i], sim_time[i]))
+
+            # Export the information for cost computation
+            smac_it_filename = 'smac_iteration_data.json'
+
+            export_data = dict(tasks=list())
+
+            for tag in sorted(cost_fcn_data.keys(), key=natural_keys):
+                try:
+                    task_num = os.path.basename(tag).split('.')[0].split('_')[1]
+                    export_data['tasks'].append(int(task_num))
+                except:
+                    export_data['tasks'].append(os.path.basename(tag))
+                for item in cost_fcn_data[tag]:
+                    if item not in export_data:
+                        export_data[item] = list()
+                    export_data[item].append(cost_fcn_data[tag][item])
+                p = vars(args)
+                for param_tag in OPT_CONFIG.parameters:
+                    if param_tag not in export_data:
+                        export_data[param_tag] = list()
+                    export_data[param_tag].append(p[param_tag])
+
+            if os.path.isfile(smac_it_filename):
+                smac_it_dataframe = pd.read_json(smac_it_filename)
+                it_index = smac_it_dataframe['iteration'].max()
+                export_data['iteration'] = [it_index + 1 for _ in range(len(export_data['tasks']))]
+                smac_it_dataframe = pd.concat([smac_it_dataframe, pd.DataFrame.from_dict(export_data)], ignore_index=True)
+            else:
+                export_data['iteration'] = [0 for _ in range(len(export_data['tasks']))]
+                smac_it_dataframe = pd.DataFrame.from_dict(export_data)                
+            
+            smac_it_dataframe.to_json(smac_it_filename)
+
+            # Export the parameters for this iteration
+            smac_it_filename = 'smac_iteration_params.json'
+
+            export_data = dict()
+
+            p = vars(args)
+            for param_tag in OPT_CONFIG.parameters:
+                export_data[param_tag] = [p[param_tag]]
+            
+            export_data['cost'] = [total_cost]        
+
+            if os.path.isfile(smac_it_filename):
+                smac_it_dataframe = pd.read_json(smac_it_filename)
+                smac_it_dataframe = pd.concat([smac_it_dataframe, pd.DataFrame.from_dict(export_data)], ignore_index=True)
+            else:
+                smac_it_dataframe = pd.DataFrame.from_dict(export_data)
+
+            smac_it_dataframe.to_json(smac_it_filename)
             
     except Exception as ex:
         template = "An exception of type {0} occurred. Arguments:\n{1!r}"

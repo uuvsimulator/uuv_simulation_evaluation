@@ -17,7 +17,7 @@ import rospy
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from simulation_data import SimulationData
+from simulation_data import SimulationData, COLOR_RED, COLOR_GREEN, COLOR_BLUE
 
 
 class ThrusterData(SimulationData):
@@ -25,19 +25,6 @@ class ThrusterData(SimulationData):
 
     def __init__(self, bag):
         super(ThrusterData, self).__init__()
-
-        self._plot_configs = dict(thruster_output=dict(
-                                    figsize=[12, 5],
-                                    linewidth=2,
-                                    label_fontsize=30,
-                                    xlim=None,
-                                    ylim=None,
-                                    zlim=None,
-                                    tick_labelsize=25,
-                                    labelpad=10,
-                                    legend=dict(
-                                        loc='upper right',
-                                        fontsize=20)))
         
         for x in bag.get_type_and_topic_info():
             for k in x:
@@ -65,7 +52,7 @@ class ThrusterData(SimulationData):
                     if i in self._recorded_data:
                         self._logger.info('%s/%d/thrust=loaded' % (self._prefix, i))
         except Exception as e:
-            self._logger.error('Error retrieving thrust output from rosbag, message=' + str(e))
+            self._logger.warning('Error retrieving thrust output from rosbag, message=' + str(e))
 
         try:
             # Find all thruster input topics
@@ -80,7 +67,49 @@ class ThrusterData(SimulationData):
                     if i in self._recorded_data:
                         self._logger.info('%s/%d/input=loaded' % (self._prefix, i))
         except Exception as e:
-            self._logger.error('Error retrieving thruster input data from rosbag, message=' + str(e))
+            self._logger.warning('Error retrieving thruster input data from rosbag, message=' + str(e))
+
+    def get_as_dataframe(self, add_group_name=None):
+        try:
+            import pandas
+
+            data = dict()
+            data[self.LABEL + '_id'] = list()
+            data[self.LABEL + '_output_time'] = list()
+            data[self.LABEL + '_output_values'] = list()
+            if add_group_name is not None:
+                data['group'] = list()
+            for i in self._recorded_data:
+                data[self.LABEL + '_id'] += [i for _ in range(len(self._recorded_data[i]['thrust']['time']))]
+                if add_group_name is not None:
+                    data['group'] += [add_group_name for _ in range(len(self._recorded_data[i]['thrust']['time']))]
+                
+                data[self.LABEL + '_output_time'] += self._recorded_data[i]['thrust']['time']
+                data[self.LABEL + '_output_values'] += self._recorded_data[i]['thrust']['values']
+
+            df_output = pandas.DataFrame(data)        
+
+            data = dict()
+            data[self.LABEL + '_id'] = list()
+            data[self.LABEL + '_input_time'] = list()
+            data[self.LABEL + '_input_values'] = list()
+            if add_group_name is not None:
+                data['group'] = list()
+            for i in self._recorded_data:
+                data[self.LABEL + '_id'] += [i for _ in range(len(self._recorded_data[i]['input']['time']))]
+                if add_group_name is not None:
+                    data['group'] += [add_group_name for _ in range(len(self._recorded_data[i]['input']['time']))]
+                
+                data[self.LABEL + '_input_time'] += self._recorded_data[i]['input']['time']
+                data[self.LABEL + '_input_values'] += self._recorded_data[i]['input']['values']        
+
+            df_input = pandas.DataFrame(data)
+
+            return dict(input=df_input, output=df_output)
+
+        except Exception as ex:
+            self._logger.error('Error while exporting as pandas.DataFrame, message=' + str(ex))
+            return None
 
     @property
     def n_thrusters(self):
@@ -102,8 +131,8 @@ class ThrusterData(SimulationData):
             raise Exception('Invalid output directory')
 
         fig, ax = plt.subplots(self.n_thrusters, 1,
-                               figsize=(self._plot_configs['thruster_output']['figsize'][0],
-                                        self.n_thrusters * self._plot_configs['thruster_output']['figsize'][1]))
+                               figsize=(self._plot_configs['figsize'][0],
+                                        self.n_thrusters * self._plot_configs['figsize'][1]))
         try:
             ##############################################################################
             # Plot individual thruster outputs
@@ -119,19 +148,19 @@ class ThrusterData(SimulationData):
                     ax[i].plot(
                         self._recorded_data[i]['thrust']['time'],
                         self._recorded_data[i]['thrust']['values'],
-                        linewidth=self._plot_configs['thruster_output']['linewidth'],
+                        linewidth=self._plot_configs['linewidth'],
                         label='%d' % i)
 
-                    ax[i].set_xlabel('Time [s]',
-                                        fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-                    ax[i].set_ylabel(r'$\tau_%d$ [N]' % i,
-                                        fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-                    ax[i].tick_params(axis='both',
-                                        labelsize=self._plot_configs['thruster_output']['tick_labelsize'])
-                    ax[i].grid(True)
                     ax[i].set_xlim(
                         np.min(self._recorded_data[i]['thrust']['time']), 
                         np.max(self._recorded_data[i]['thrust']['time']))
+
+                    self.config_2dplot(
+                        ax=ax[i],
+                        title='',
+                        xlabel='Time [s]',
+                        ylabel=r'$\tau_%d$ [N]' % i,
+                        legend_on=False)                      
 
                 for i in range(self.n_thrusters):
                     ax[i].set_ylim(-max_y, max_y)
@@ -142,24 +171,24 @@ class ThrusterData(SimulationData):
                 ax.plot(
                     self._recorded_data[0]['thrust']['time'],
                     self._recorded_data[0]['thrust']['values'],
-                    linewidth=self._plot_configs['thruster_output']['linewidth'],
+                    linewidth=self._plot_configs['linewidth'],
                     label='%d' % 0)
 
-                ax.set_xlabel('Time [s]',
-                                    fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-                ax.set_ylabel(r'$\tau_%d$ [N]' % 0,
-                                    fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-                ax.tick_params(axis='both',
-                                    labelsize=self._plot_configs['thruster_output']['tick_labelsize'])
-                ax.grid(True)
                 ax.set_xlim(
                     np.min(self._recorded_data[0]['thrust']['time']), 
                     np.max(self._recorded_data[0]['thrust']['time']))
 
                 ax.set_ylim(-max_y, max_y)
 
+                self.config_2dplot(
+                    ax=ax,
+                    title='',
+                    xlabel='Time [s]',
+                    ylabel=r'$\tau_%d$ [N]' % 0,
+                    legend_on=False)     
 
-            fig.tight_layout()
+
+            plt.tight_layout()
             output_path = (self._output_dir if output_dir is None else output_dir)
             filename = os.path.join(output_path, 'thrusts.pdf')
             fig.savefig(filename)
@@ -170,8 +199,7 @@ class ThrusterData(SimulationData):
             plt.close(fig)
             del fig
 
-        fig_all = plt.figure(figsize=(self._plot_configs['thruster_output']['figsize'][0], 
-                                      self._plot_configs['thruster_output']['figsize'][1]))
+        fig_all = self.get_figure()
         try:
             ##############################################################################
             # All thrust outputs
@@ -182,25 +210,25 @@ class ThrusterData(SimulationData):
             for i in self._recorded_data:                
                 ax_all.plot(self._recorded_data[i]['thrust']['time'],
                             self._recorded_data[i]['thrust']['values'],
-                            linewidth=self._plot_configs['thruster_output']['linewidth'],
+                            linewidth=self._plot_configs['linewidth'],
                             label='%d' % i)
 
-            ax_all.set_xlabel('Time [s]',
-                              fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-            ax_all.set_ylabel(r'Thrust output [N]',
-                              fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-            ax_all.tick_params(axis='both',
-                               labelsize=self._plot_configs['thruster_output']['tick_labelsize'])
-            ax_all.grid(True)
             ax_all.set_xlim(np.min(self._recorded_data[i]['thrust']['time']), np.max(self._recorded_data[i]['thrust']['time']))
             ax_all.set_ylim(-max_y, max_y)
 
             ax_all.legend(fancybox=True, framealpha=1,
-                          loc=self._plot_configs['thruster_output']['legend']['loc'],
-                          fontsize=self._plot_configs['thruster_output']['legend']['fontsize'])
+                          loc=self._plot_configs['legend']['loc'],
+                          fontsize=self._plot_configs['legend']['fontsize'])
+
+            self.config_2dplot(
+                ax=ax_all,
+                title='',
+                xlabel='Time [s]',
+                ylabel=r'Thrust output [N]',
+                legend_on=True)  
 
             plt.gcf().subplots_adjust(left=0.15, bottom=0.15)
-            fig_all.tight_layout()
+            plt.tight_layout()
 
             output_path = (self._output_dir if output_dir is None else output_dir)
             filename = os.path.join(output_path, 'thrusts_all.pdf')
@@ -212,8 +240,7 @@ class ThrusterData(SimulationData):
             plt.close(fig_all)
             del fig_all
 
-        fig_avg = plt.figure(figsize=(self._plot_configs['thruster_output']['figsize'][0], 
-                                      self._plot_configs['thruster_output']['figsize'][1]))
+        fig_avg = self.get_figure()
         try:
             ##############################################################################
             # Average thruster output
@@ -239,17 +266,17 @@ class ThrusterData(SimulationData):
             thrust_sum /= self.n_thrusters
             ax_avg.plot(t0,
                         thrust_sum,
-                        linewidth=self._plot_configs['thruster_output']['linewidth'],
+                        linewidth=self._plot_configs['linewidth'],
                         label=r'$%d$' % i)
 
-            ax_avg.set_xlabel('Time [s]',
-                              fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-            ax_avg.set_ylabel(r'$\frac{1}{N} \sum_{i=1}^{N} \tau_i$ [N]',
-                              fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-            ax_avg.tick_params(axis='both',
-                               labelsize=self._plot_configs['thruster_output']['tick_labelsize'])
-            ax_avg.grid(True)
             ax_avg.set_xlim(np.min(t0), np.max(t0))
+
+            self.config_2dplot(
+                ax=ax_avg,
+                title='',
+                xlabel='Time [s]',
+                ylabel=r'$\frac{1}{N} \sum_{i=1}^{N} \tau_i$ [N]',
+                legend_on=False) 
 
             plt.tight_layout()
             plt.gcf().subplots_adjust(left=0.15, bottom=0.15)
@@ -264,8 +291,7 @@ class ThrusterData(SimulationData):
             plt.close(fig_avg)
             del fig_avg
 
-        fig_max = plt.figure(figsize=(self._plot_configs['thruster_output']['figsize'][0],
-                                      self._plot_configs['thruster_output']['figsize'][1]))
+        fig_max = self.get_figure()
         try:
             ##############################################################################
             # Maximum thruster output for each time step
@@ -274,17 +300,17 @@ class ThrusterData(SimulationData):
             self._logger.info('Plotting maximum element-wise values for the thrust forces')
             ax_max.plot(t0,
                         thrust_max,
-                        linewidth=self._plot_configs['thruster_output']['linewidth'],
+                        linewidth=self._plot_configs['linewidth'],
                         label=r'$%d$' % i)
 
-            ax_max.set_xlabel('Time [s]',
-                              fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-            ax_max.set_ylabel(r'max $| \tau_i |$ [N]',
-                              fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-            ax_max.tick_params(axis='both',
-                               labelsize=self._plot_configs['thruster_output']['tick_labelsize'])
-            ax_max.grid(True)
             ax_max.set_xlim(np.min(t0), np.max(t0))
+
+            self.config_2dplot(
+                ax=ax_max,
+                title='',
+                xlabel='Time [s]',
+                ylabel=r'max $| \tau_i |$ [N]',
+                legend_on=True)  
 
             plt.tight_layout()
             plt.gcf().subplots_adjust(left=0.15, bottom=0.15)
@@ -299,8 +325,8 @@ class ThrusterData(SimulationData):
             plt.close(fig_max)
             del fig_max
 
-        fig_in = plt.figure(figsize=(self._plot_configs['thruster_output']['figsize'][0],
-                                     self._plot_configs['thruster_output']['figsize'][1]))
+        fig_in = plt.figure(figsize=(self._plot_configs['figsize'][0],
+                                     self._plot_configs['figsize'][1]))
         try:
             ##############################################################################
             # Plot thruster command input data
@@ -317,28 +343,23 @@ class ThrusterData(SimulationData):
                 ax_min.plot(
                     self._recorded_data[i]['input']['time'],
                     self._recorded_data[i]['input']['values'],
-                    linewidth=self._plot_configs['thruster_output']['linewidth'],
+                    linewidth=self._plot_configs['linewidth'],
                     label='%d' % i)
                 max_t = max(max_t, np.max(self._recorded_data[i]['input']['time']))
                 min_y = min(min_y, np.min(self._recorded_data[i]['input']['values']))
                 max_y = max(max_y, np.max(self._recorded_data[i]['input']['values']))
-
-            ax_min.set_xlabel(r'Time [s]',
-                              fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-            ax_min.set_ylabel(r'Thrust input [rad/s]',
-                              fontsize=self._plot_configs['thruster_output']['label_fontsize'])
-            ax_min.tick_params(axis='both',
-                               labelsize=self._plot_configs['thruster_output']['tick_labelsize'])
-
-            ax_min.legend(fancybox=True, framealpha=1,
-                          loc=self._plot_configs['thruster_output']['legend']['loc'],
-                          fontsize=self._plot_configs['thruster_output']['legend']['fontsize'])
-
-            ax_min.grid(True)
+            
             ax_min.set_xlim(min_t, max_t)            
             ax_min.set_ylim(min_y, max_y)
 
-            fig_in.tight_layout()
+            self.config_2dplot(
+                ax=ax_min,
+                title='',
+                xlabel='Time [s]',
+                ylabel=r'Thrust input [rad/s]',
+                legend_on=True)  
+
+            plt.tight_layout()
             output_path = (self._output_dir if output_dir is None else output_dir)
             filename = os.path.join(output_path, 'thruster_input.pdf')
             fig_in.savefig(filename)

@@ -206,6 +206,34 @@ class Evaluation(object):
     def export_to_txt(self, tag, output_dir):
         pass
 
+    def save_dataframes(self, output_dir=None):
+        if output_dir is not None:
+            if not os.path.isdir(output_dir):
+                self._logger.error('Invalid output directory, dir=' + str(output_dir))
+                raise Exception('Invalid output directory')
+        output_path = (self._output_dir if output_dir is None else output_dir)
+        try:        
+            for tag in self.recording.parsers:
+                self._logger.info('Reading data frame for ' + tag)
+                df = self.recording.parsers[tag].get_as_dataframe()
+
+                if df is None:
+                    continue
+                
+                if not os.path.isdir(os.path.join(output_path, 'data')):
+                    os.makedirs(os.path.join(output_path, 'data'))
+
+                if isinstance(df, dict):
+                    for k in df:
+                        with open(os.path.join(output_path, 'data', '%s_%s.yaml' % (tag, k)), 'w') as data_file:
+                            yaml.dump(df[k].to_dict(), data_file, default_flow_style=False)        
+                else:
+                    with open(os.path.join(output_path, 'data', '%s.yaml' % tag), 'w') as data_file:
+                        yaml.dump(df.to_dict(), data_file, default_flow_style=False)
+                self._logger.info('Data frame <%s> stored=%s' % (tag, os.path.join(output_path, 'data', '%s.yaml' % tag)))
+        except Exception as e:
+            self._logger.error('Error storing dataframes file, message=' + str(e))
+
     def save_evaluation(self, output_dir=None):
         if output_dir is not None:
             if not os.path.isdir(output_dir):
