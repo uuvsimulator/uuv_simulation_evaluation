@@ -158,6 +158,10 @@ if __name__ == '__main__':
                     failed_tasks.append(task)
                     SMAC_WRAPPER_LOGGER.warning('Cost of task {} is much higher than 0.33 * standard deviation'.format(task))
                     SMAC_WRAPPER_LOGGER.warning('Scheduling task {} for a rerun, cost={}'.format(task, cost[task]))
+                elif cost[task] < 0.001:
+                    failed_tasks.append(task)
+                    SMAC_WRAPPER_LOGGER.warning('Cost of task {} is too low'.format(task))
+                    SMAC_WRAPPER_LOGGER.warning('Scheduling task {} for a rerun, cost={}'.format(task, cost[task]))
                 else:
                     temp_cost[task] = cost[task]
                     temp_sim_time[task] = sim_time[task]
@@ -190,8 +194,7 @@ if __name__ == '__main__':
                     for i in range(len(rerun_output)):
                         item = rerun_output[i]
                         SMAC_WRAPPER_LOGGER.info(item['task'])
-                        SMAC_WRAPPER_LOGGER.info(item)
-
+                        
                         if item['status'] == 'CRASHED':
                             continue
 
