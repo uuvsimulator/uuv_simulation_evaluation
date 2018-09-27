@@ -14,4 +14,4 @@
 # limitations under the License.
 
 from .cost_function import CostFunction
-from .constraint import Constraint, LogBarrierMethod, InverseBarrierMethod, PenaltyFunction
+from .constraint import Constraint, LogBarrierMethod, InverseBarrierMethod, PenaltyFunction, DistancePenaltyFunction
