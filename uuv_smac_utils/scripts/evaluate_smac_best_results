@@ -32,6 +32,7 @@ import sys
 import yaml
 import pandas as pd
 import numpy as np
+import random
 from time import sleep, strftime, gmtime
 from rospkg import RosPack
 from cycler import cycler
@@ -76,16 +77,11 @@ INCUMBENTS = dict()
 
 
 def run_simulation(inc, output_dir):
+    print('Running simulation for incumbent=')
+    print(inc)
     opt_config = OptConfiguration.get_instance()
     sub_result_folder = os.path.join(os.getcwd(), output_dir, str(inc['evaluations']))
-
-    if not os.path.isdir(sub_result_folder):
-        os.makedirs(sub_result_folder)
-
-    # Store the partial result in the folder
-    with open(os.path.join(sub_result_folder, 'partial_result.json'), 'w') as p_res:
-        p_res.write(json.dumps(inc))
-
+    
     parsed_params = dict()
 
     for item in inc['incumbent']:
@@ -96,8 +92,21 @@ def run_simulation(inc, output_dir):
     opt_config.results_dir = sub_result_folder
 
     failed_tasks = list()
+
+    print('Running simulation')
+    print('\t Output=' + sub_result_folder)
+    
+    if not os.path.isdir(sub_result_folder):
+        os.makedirs(sub_result_folder)
+
+    # Store the partial result in the folder
+    with open(os.path.join(sub_result_folder, 'partial_result.json'), 'w') as p_res:
+        p_res.write(json.dumps(inc))
+
     output, failed_tasks = start_simulation_pool(2,
-                                                 output_dir=sub_result_folder)
+                                                output_dir=sub_result_folder)
+
+    sleep(3 * random.random())
 
     time_offset = 0.0
     if opt_config.evaluation_time_offset is not None:
@@ -114,6 +123,8 @@ def run_simulation(inc, output_dir):
         else:
             sim_eval.save_kpis()
         sleep(0.1)
+
+    sleep(2 * random.random())
 
     return output
 
@@ -401,7 +412,7 @@ def plot_position_heading_error(results, output_dir):
 
         ax.set_xlabel('Time [s]', fontsize=PLOT_CONFIGS['label_fontsize'])
         ax.set_ylabel('Heading error [rad]', fontsize=PLOT_CONFIGS['label_fontsize'])
-        ax.legend(fancybox=True, framealpha=0.9, loc='upper left', fontsize=PLOT_CONFIGS['legend']['fontsize'])
+        ax.legend(fancybox=True, framealpha=0.9, loc='upper left', fontsize=16)
         ax.grid(True)
         ax.tick_params(axis='both', labelsize=PLOT_CONFIGS['tick_labelsize'])
         ax.set_xlim(np.min(error_t_ini), np.max(error_t_ini))
@@ -503,7 +514,7 @@ if __name__ == '__main__':
 
     SMAC_OUTPUT = list()
     for item in os.listdir(args.input_dir):
-        if 'smac' in item:
+        if 'smac3-output' in item:
             if os.path.isdir(os.path.join(args.input_dir, item)):
                 SMAC_OUTPUT.append(dict(folder=os.path.join(args.input_dir, item)))
 
@@ -524,7 +535,7 @@ if __name__ == '__main__':
                             smac_file = os.path.join(SMAC_OUTPUT[i]['folder'], f, a)
                             break
             if not os.path.isfile(smac_file):
-                raise Exception('SMAC output file not found')
+                raise Exception('SMAC output file not found=' + smac_file)
             SMAC_OUTPUT[i][tag] = smac_file
 
     print('# SMAC folders=' + str(len(SMAC_OUTPUT)))
@@ -570,17 +581,38 @@ if __name__ == '__main__':
     INCUMBENTS['initial'] = None
     INCUMBENTS['optimal'] = None
     for i in range(len(SMAC_OUTPUT)):
+        print('Processing folder=' + SMAC_OUTPUT[i]['folder'])
         smac_results = list()        
-        print('- %d' % i)
+        print('\t- %d' % i)
         with open(SMAC_OUTPUT[i]['output_file'], 'r') as s_file:
             SMAC_OUTPUT[i]['incumbents'] = list()
             counter = 0
             for line in s_file:
-                SMAC_OUTPUT[i]['incumbents'].append(json.loads(line))                
-                print('\t\t - %d = %.3f' % (counter, SMAC_OUTPUT[i]['incumbents'][-1]['cost']))      
+                SMAC_OUTPUT[i]['incumbents'].append(json.loads(line))                                
+
+                print('\t\t - %d (%d) = %.6f' % (counter, SMAC_OUTPUT[i]['incumbents'][-1]['evaluations'], SMAC_OUTPUT[i]['incumbents'][-1]['cost']))      
 
                 # Exclude first incumbent, it is stored, but before any simulation is done
                 if counter > 0:
+                    # Store incumbent
+                    parsed_params = dict()
+
+                    for item in SMAC_OUTPUT[i]['incumbents'][-1]['incumbent']:                            
+                        tag, value = item.split('=')
+                        parsed_params[tag] = float(value[1:-1])
+
+                    opt_config.parse_input(parsed_params)
+
+                    inc_dir = os.path.join(args.output_dir, 'incumbents', str(i))
+                    if not os.path.isdir(inc_dir):
+                        os.makedirs(inc_dir) 
+
+                    inc_data = dict(cost=float(SMAC_OUTPUT[i]['incumbents'][-1]['cost']), params=dict())                
+                    inc_data['params'] = opt_config.params
+
+                    with open(os.path.join(inc_dir, 'inc_{}.yml'.format(counter)), 'w') as i_file:
+                        yaml.safe_dump(inc_data, i_file, default_flow_style=False)
+
                     if INCUMBENTS['initial'] is None:
                         INCUMBENTS['initial'] = SMAC_OUTPUT[i]['incumbents'][-1]
                     else:
@@ -598,8 +630,14 @@ if __name__ == '__main__':
         with open(SMAC_OUTPUT[i]['stats']) as s_file:
             SMAC_OUTPUT[i]['stats'] = json.loads(s_file.readline())
 
-        print(SMAC_OUTPUT[i]['stats'])
-            
+        print(SMAC_OUTPUT[i]['stats'])    
+
+    print('Initial incumbent=')
+    print(INCUMBENTS['initial'])
+
+    print('Optimal incumbent=')
+    print(INCUMBENTS['optimal'])
+    
     ########################################################################
     # Plot SMAC costs
     ########################################################################
@@ -611,9 +649,19 @@ if __name__ == '__main__':
     # Plot error and trajectories
     ########################################################################
 
+    # Simulate partial results
+    # for i in range(len(SMAC_OUTPUT)):
+    #     print(SMAC_OUTPUT[i]['incumbents'])
+    #     for inc in SMAC_OUTPUT[i]['incumbents']:
+    #         run_simulation(inc, os.path.join(args.output_dir, 'partial_results', str(i)))
+
     # Simulate the scenario with the initial parameters    
     for tag in INCUMBENTS:
-        result_folders[INCUMBENTS[tag]['evaluations']] = run_simulation(INCUMBENTS[tag], args.output_dir)    
+        result_folders[0 if tag == 'initial' else 1] = run_simulation(INCUMBENTS[tag], os.path.join(args.output_dir, tag))    
+
+    for item in ['initial', 'optimal']:
+        print(item)
+        print('\t - ' + str(INCUMBENTS[item]))
 
     plot_trajectories(result_folders, args.output_dir)
     plot_position_heading_error(result_folders, args.output_dir)    
