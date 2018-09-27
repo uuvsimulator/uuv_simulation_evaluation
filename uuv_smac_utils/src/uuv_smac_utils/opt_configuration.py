@@ -61,7 +61,6 @@ class OptConfiguration(object):
         task = self._opt_config['task']
 
         SIMULATION_LOGGER.info('Task(s) input=' + str(self._opt_config['task']))
-        SIMULATION_LOGGER.info(os.path.isdir(self._opt_config['task']))
         if isinstance(task, list):
             SIMULATION_LOGGER.info('Multiple tasks found:')
             for t in task:
