@@ -58,7 +58,7 @@ class CostFunction(object):
         else:
             assert isinstance(norm, int)
             self.norm = norm
-
+            
     def add_constraints(self, constraints):
         for c in constraints:
             if not self.add_constraint(c['type'], c['tag'], c['input_tag'], c['params']):
@@ -148,18 +148,20 @@ class CostFunction(object):
 
     def compute(self):        
         costs = list()
-        self.logger.info('Calculating cost function=')        
+        self.logger.info('Calculating cost function=')    
+        w = 1. / len(self.weights.keys())    
         for tag in sorted(self.weights.keys()):
             if self.kpis[tag] < 0:
                 raise Exception('KPI <%s> has an invalid value=%.2f' % (tag, self.kpis[tag]))
-            self.logger.info('\t {} - Weight: {} - KPI: {}'.format(tag, self.weights[tag], self.kpis[tag]))
-            self.logger.info('\t\t Result: {}'.format(self.weights[tag] * self.kpis[tag]))
+            costs += [w * self.weights[tag] * self.kpis[tag]]
 
-            self.export_data['weight_' + tag] = float(self.weights[tag])
+            self.logger.info('\t {} - Weight: {} * {} - KPI: {}'.format(tag, w, self.weights[tag], self.kpis[tag]))
+            self.logger.info('\t\t Result: {}'.format(costs[-1]))
+
+            self.export_data['weight_' + tag] = float(w * self.weights[tag])
             self.export_data[tag] = float(self.kpis[tag])
-            self.export_data['cost_' + tag] = float(self.weights[tag] * self.kpis[tag])
-
-            costs += [self.weights[tag] * self.kpis[tag]]
+            self.export_data['cost_' + tag] = float(w * self.weights[tag] * self.kpis[tag])
+            
         self.logger.info('Computing cost function from cost vector norm=%s' % str(self.norm))
         total_cost = np.linalg.norm(costs, ord=self.norm)
         
@@ -168,6 +170,7 @@ class CostFunction(object):
 
         self.export_data['total_cost'] = float(total_cost)
         self.logger.info('Cost (after constraints)=' + str(total_cost))
+        self.export_data['norm'] = str(self.norm)
         return total_cost
 
     def compute_constraints(self):
