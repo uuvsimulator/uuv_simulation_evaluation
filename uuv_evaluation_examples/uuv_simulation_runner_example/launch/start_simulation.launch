@@ -83,7 +83,7 @@
     </include>
 
     <!-- Spawn the vehicle -->
-    <include file="$(find uuv_descriptions)/models/rexrov/launch/upload_rexrov.launch">
+    <include file="$(find uuv_descriptions)/launch/upload_rexrov.launch">
         <arg name="x" value="$(arg x)"/>
         <arg name="y" value="$(arg y)"/>
         <arg name="z" value="$(arg z)"/>
