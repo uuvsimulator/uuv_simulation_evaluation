@@ -47,8 +47,8 @@ try:
     import seaborn
     plt.style.use('seaborn-ticks')
     plt.rcParams['legend.frameon'] = True
-    
-    COLORS = seaborn.color_palette("muted", 20)    
+
+    COLORS = seaborn.color_palette("muted", 20)
 except:
     COLORS = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
 
@@ -56,7 +56,7 @@ plt.rcParams['axes.prop_cycle'] = cycler('color', COLORS)
 
 roslib.load_manifest('uuv_smac_utils')
 
-PLOT_CONFIGS = dict(                                    
+PLOT_CONFIGS = dict(
     figsize=[12, 6],
     linewidth=3,
     label_fontsize=22,
@@ -64,12 +64,12 @@ PLOT_CONFIGS = dict(
     tick_labelsize=20,
     xlim=None,
     ylim=None,
-    zlim=None,                                    
+    zlim=None,
     labelpad=10,
     legend=dict(
         loc='upper right',
         fontsize=22))
-        
+
 ROSPACK_INST = RosPack()
 GEN_PDF = False
 SMAC_OUTPUT = list()
@@ -81,7 +81,7 @@ def run_simulation(inc, output_dir):
     print(inc)
     opt_config = OptConfiguration.get_instance()
     sub_result_folder = os.path.join(os.getcwd(), output_dir, str(inc['evaluations']))
-    
+
     parsed_params = dict()
 
     for item in inc['incumbent']:
@@ -95,7 +95,7 @@ def run_simulation(inc, output_dir):
 
     print('Running simulation')
     print('\t Output=' + sub_result_folder)
-    
+
     if not os.path.isdir(sub_result_folder):
         os.makedirs(sub_result_folder)
 
@@ -116,7 +116,7 @@ def run_simulation(inc, output_dir):
         sim_eval = Evaluation(item['recording_filename'],
                               item['results_dir'],
                               time_offset=time_offset)
-                              
+
         sim_eval.compute_kpis()
         if GEN_PDF:
             sim_eval.save_evaluation()
@@ -155,7 +155,7 @@ def plot_trajectories(results, output_dir):
 
         task_results = get_task_results(results, task)
         idx = np.min(task_results.keys())
-        
+
         task_name = task_results[idx]['task'].split('/')[-1]
         task_name = task_name.split('.')[0]
 
@@ -257,7 +257,7 @@ def plot_cost(output_dir):
     # Plot cost function evolution
     ########################################################################
 
-    # SMAC's first two runs are always the same    
+    # SMAC's first two runs are always the same
     fig = plt.figure(figsize=(PLOT_CONFIGS['figsize'][0], PLOT_CONFIGS['figsize'][1]))
     ax = fig.add_subplot(111)
 
@@ -269,28 +269,28 @@ def plot_cost(output_dir):
         max_evals = max(max_evals, evals[-1])
 
         costs = [0 for _ in range(len(evals))]
-        cur_inc = 1     
-        for j in evals:                       
-            if j > 1:                
+        cur_inc = 1
+        for j in evals:
+            if j > 1:
                 if cur_inc < (len(SMAC_OUTPUT[i]['incumbents']) - 1):
                     if j == SMAC_OUTPUT[i]['incumbents'][cur_inc + 1]['evaluations']:
-                        cur_inc += 1            
+                        cur_inc += 1
             costs[j] = SMAC_OUTPUT[i]['incumbents'][cur_inc]['cost']
-            
+
         ax.plot(
-            evals, 
-            costs, 
-            linewidth=PLOT_CONFIGS['linewidth'], zorder=1, 
+            evals,
+            costs,
+            linewidth=PLOT_CONFIGS['linewidth'], zorder=1,
             label=str(i),
             linestyle='--',
             marker='o')
-        
+
     ax.set_xlabel('Number of evaluations', fontsize=PLOT_CONFIGS['label_fontsize'])
     ax.set_ylabel('Cost function', fontsize=PLOT_CONFIGS['label_fontsize'])
     ax.tick_params(axis='both', labelsize=PLOT_CONFIGS['tick_labelsize'])
     ax.grid(True)
-        
-    ax.set_xlim(0, max_evals)    
+
+    ax.set_xlim(0, max_evals)
     plt.tight_layout()
 
     if not os.path.isdir(os.path.join(output_dir, 'plots')):
@@ -320,13 +320,13 @@ def plot_position_heading_error(results, output_dir):
         fig = plt.figure(figsize=(PLOT_CONFIGS['figsize'][0], PLOT_CONFIGS['figsize'][1]))
         task_results = get_task_results(results, task)
 
-        idx = np.min(task_results.keys())                
+        idx = np.min(task_results.keys())
         task_name = task_results[idx]['task'].split('/')[-1]
         task_name = task_name.split('.')[0]
 
         # Plot position error
         ax = fig.add_subplot(211)
-        
+
         sim_eval = Evaluation(task_results[idx]['recording_filename'],
                               task_results[idx]['results_dir'],
                               time_offset=time_offset)
@@ -335,7 +335,7 @@ def plot_position_heading_error(results, output_dir):
         error_vec_ini = KPI.get_error(sim_eval._error_set.get_data('position'))
         error_yaw_vec_ini = sim_eval._error_set.get_data('yaw')
 
-        ax.plot(error_t_ini, error_vec_ini, 
+        ax.plot(error_t_ini, error_vec_ini,
             color='#E2742B', linewidth=PLOT_CONFIGS['linewidth'], label='Initial set')
 
         error_max = np.max(error_vec_ini)
@@ -353,28 +353,28 @@ def plot_position_heading_error(results, output_dir):
         error_vec_opt = KPI.get_error(sim_eval._error_set.get_data('position'))
         error_yaw_vec_opt = sim_eval._error_set.get_data('yaw')
 
-        ax.plot(error_t_opt, error_vec_opt, 
+        ax.plot(error_t_opt, error_vec_opt,
             color='#6600CC', linewidth=PLOT_CONFIGS['linewidth'], label='Optimal set')
 
         error_max = np.max([error_max, np.max(error_vec_opt)])
 
-        if vec_cur is not None:
-            v = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_cur])
-            if v.max() > 0:
-                v[v > 0] = 1.05
-                ax.fill_between(t_cur, 0, v * error_max, facecolor='blue', alpha=0.2, label='Current disturbance activated')
-
-        if vec_force is not None:
-            f = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_force])
-            tau = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_torque])
-
-            if f.max() > 0:
-                f[f > 0] = 1.05
-                ax.fill_between(t_force, 0, f * error_max, facecolor='red', alpha=0.2, label='Force disturbance activated')
-
-            if tau.max() > 0:
-                tau[tau > 0] = 1.05
-                ax.fill_between(t_force, 0, tau * error_max, facecolor='green', alpha=0.2, label='Torque disturbance activated')
+        # if vec_cur is not None:
+        #     v = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_cur])
+        #     if v.max() > 0:
+        #         v[v > 0] = 1.05
+        #         ax.fill_between(t_cur, 0, v * error_max, facecolor='blue', alpha=0.2, label='Current disturbance activated')
+        #
+        # if vec_force is not None:
+        #     f = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_force])
+        #     tau = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_torque])
+        #
+        #     if f.max() > 0:
+        #         f[f > 0] = 1.05
+        #         ax.fill_between(t_force, 0, f * error_max, facecolor='red', alpha=0.2, label='Force disturbance activated')
+        #
+        #     if tau.max() > 0:
+        #         tau[tau > 0] = 1.05
+        #         ax.fill_between(t_force, 0, tau * error_max, facecolor='green', alpha=0.2, label='Torque disturbance activated')
 
         ax.set_xlabel('Time [s]', fontsize=20)
         ax.set_ylabel('Position error [m]', fontsize=20)
@@ -392,23 +392,23 @@ def plot_position_heading_error(results, output_dir):
 
         error_max = np.pi
         error_min = -np.pi
-        if vec_cur is not None:
-            v = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_cur])
-            if v.max() > 0:
-                v[v > 0] = 1.05
-                ax.fill_between(t_cur, v * error_min, v * error_max, facecolor='blue', alpha=0.2, label='Current disturbance activated')
+        # if vec_cur is not None:
+        #     v = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_cur])
+        #     if v.max() > 0:
+        #         v[v > 0] = 1.05
+        #         ax.fill_between(t_cur, v * error_min, v * error_max, facecolor='blue', alpha=0.2, label='Current disturbance activated')
 
-        if vec_force is not None:
-            f = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_force])
-            tau = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_torque])
+        # if vec_force is not None:
+        #     f = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_force])
+        #     tau = np.array([np.sqrt(v[0]**2 + v[1]**2 + v[2]**2) for v in vec_torque])
 
-            if f.max() > 0:
-                f[f > 0] = 1.05
-                ax.fill_between(t_force, f * error_min, f * error_max, facecolor='red', alpha=0.2, label='Force disturbance activated')
+        #     if f.max() > 0:
+        #         f[f > 0] = 1.05
+        #         ax.fill_between(t_force, f * error_min, f * error_max, facecolor='red', alpha=0.2, label='Force disturbance activated')
 
-            if tau.max() > 0:
-                tau[tau > 0] = 1.05
-                ax.fill_between(t_force, tau * error_min, tau * error_max, facecolor='green', alpha=0.2, label='Torque disturbance activated')
+        #     if tau.max() > 0:
+        #         tau[tau > 0] = 1.05
+        #         ax.fill_between(t_force, tau * error_min, tau * error_max, facecolor='green', alpha=0.2, label='Torque disturbance activated')
 
         ax.set_xlabel('Time [s]', fontsize=PLOT_CONFIGS['label_fontsize'])
         ax.set_ylabel('Heading error [rad]', fontsize=PLOT_CONFIGS['label_fontsize'])
@@ -459,24 +459,24 @@ def plot_best_incumbent(input_dir, output_dir):
         angles = [n / float(N) * 2 * np.pi for n in range(N)]
         params = list()
         labels = list()
-        for tag in df[seed].columns:           
+        for tag in df[seed].columns:
             if tag == 'cost':
-                continue            
+                continue
             params.append(df[seed][tag][opt_index].values[0])
             max_param = max(max_param, df[seed][tag].max())
             labels.append(tag.replace('_', '\_'))
-            
+
         angles += angles[:1]
         params += params[:1]
-        
+
         ax.plot(angles, params, linewidth=PLOT_CONFIGS['linewidth'], linestyle='solid')
         ax.fill(angles, params, 'b', alpha=0.1)
 
-        plt.xticks(angles[:-1], labels, size=PLOT_CONFIGS['label_fontsize'] + 5)        
+        plt.xticks(angles[:-1], labels, size=PLOT_CONFIGS['label_fontsize'] + 5)
         ax.tick_params(axis='both', labelsize=PLOT_CONFIGS['tick_labelsize'])
         ax.grid(True)
         ax.set_ylim(0, max_param)
-        
+
         plt.tight_layout()
 
         if not os.path.isdir(os.path.join(output_dir, 'plots')):
@@ -486,7 +486,7 @@ def plot_best_incumbent(input_dir, output_dir):
             filename = os.path.join(output_dir, 'plots', 'parameter_evolution_%d.pdf' % seed)
             plt.savefig(filename)
 
-        filename = os.path.join(output_dir, 'plots', 'parameter_evolution_%d.png' % seed)        
+        filename = os.path.join(output_dir, 'plots', 'parameter_evolution_%d.png' % seed)
         plt.savefig(filename)
         plt.close(fig)
 
@@ -519,11 +519,11 @@ if __name__ == '__main__':
                 SMAC_OUTPUT.append(dict(folder=os.path.join(args.input_dir, item)))
 
     if len(SMAC_OUTPUT) == 0:
-        raise Exception('No SMAC output folder found')    
+        raise Exception('No SMAC output folder found')
 
     for i in range(len(SMAC_OUTPUT)):
         for item, tag in zip(
-            ['traj_aclib2.json', 'runhistory.json', 'stats.json', 'scenario.txt'], 
+            ['traj_aclib2.json', 'runhistory.json', 'stats.json', 'scenario.txt'],
             ['output_file', 'history', 'stats', 'scenario']):
             for f in os.listdir(SMAC_OUTPUT[i]['folder']):
                 if f == item:
@@ -541,7 +541,7 @@ if __name__ == '__main__':
     print('# SMAC folders=' + str(len(SMAC_OUTPUT)))
     for i in range(len(SMAC_OUTPUT)):
         print('\t %d' % i)
-        for tag in SMAC_OUTPUT[i]:         
+        for tag in SMAC_OUTPUT[i]:
             print('\t\t %s=%s' % (tag, SMAC_OUTPUT[i][tag]))
 
     if not os.path.isdir(args.output_dir):
@@ -582,22 +582,22 @@ if __name__ == '__main__':
     INCUMBENTS['optimal'] = None
     for i in range(len(SMAC_OUTPUT)):
         print('Processing folder=' + SMAC_OUTPUT[i]['folder'])
-        smac_results = list()        
+        smac_results = list()
         print('\t- %d' % i)
         with open(SMAC_OUTPUT[i]['output_file'], 'r') as s_file:
             SMAC_OUTPUT[i]['incumbents'] = list()
             counter = 0
             for line in s_file:
-                SMAC_OUTPUT[i]['incumbents'].append(json.loads(line))                                
+                SMAC_OUTPUT[i]['incumbents'].append(json.loads(line))
 
-                print('\t\t - %d (%d) = %.6f' % (counter, SMAC_OUTPUT[i]['incumbents'][-1]['evaluations'], SMAC_OUTPUT[i]['incumbents'][-1]['cost']))      
+                print('\t\t - %d (%d) = %.6f' % (counter, SMAC_OUTPUT[i]['incumbents'][-1]['evaluations'], SMAC_OUTPUT[i]['incumbents'][-1]['cost']))
 
                 # Exclude first incumbent, it is stored, but before any simulation is done
                 if counter > 0:
                     # Store incumbent
                     parsed_params = dict()
 
-                    for item in SMAC_OUTPUT[i]['incumbents'][-1]['incumbent']:                            
+                    for item in SMAC_OUTPUT[i]['incumbents'][-1]['incumbent']:
                         tag, value = item.split('=')
                         parsed_params[tag] = float(value[1:-1])
 
@@ -605,9 +605,9 @@ if __name__ == '__main__':
 
                     inc_dir = os.path.join(args.output_dir, 'incumbents', str(i))
                     if not os.path.isdir(inc_dir):
-                        os.makedirs(inc_dir) 
+                        os.makedirs(inc_dir)
 
-                    inc_data = dict(cost=float(SMAC_OUTPUT[i]['incumbents'][-1]['cost']), params=dict())                
+                    inc_data = dict(cost=float(SMAC_OUTPUT[i]['incumbents'][-1]['cost']), params=dict())
                     inc_data['params'] = opt_config.params
 
                     with open(os.path.join(inc_dir, 'inc_{}.yml'.format(counter)), 'w') as i_file:
@@ -625,25 +625,25 @@ if __name__ == '__main__':
                         if SMAC_OUTPUT[i]['incumbents'][-1]['cost'] < INCUMBENTS['optimal']['cost']:
                             INCUMBENTS['optimal'] = SMAC_OUTPUT[i]['incumbents'][-1]
 
-                counter += 1        
-            
+                counter += 1
+
         with open(SMAC_OUTPUT[i]['stats']) as s_file:
             SMAC_OUTPUT[i]['stats'] = json.loads(s_file.readline())
 
-        print(SMAC_OUTPUT[i]['stats'])    
+        print(SMAC_OUTPUT[i]['stats'])
 
     print('Initial incumbent=')
     print(INCUMBENTS['initial'])
 
     print('Optimal incumbent=')
     print(INCUMBENTS['optimal'])
-    
+
     ########################################################################
     # Plot SMAC costs
     ########################################################################
-    plot_cost(args.output_dir)    
-    
-    plot_best_incumbent(args.input_dir, args.output_dir)    
+    plot_cost(args.output_dir)
+
+    plot_best_incumbent(args.input_dir, args.output_dir)
 
     ########################################################################
     # Plot error and trajectories
@@ -655,16 +655,16 @@ if __name__ == '__main__':
     #     for inc in SMAC_OUTPUT[i]['incumbents']:
     #         run_simulation(inc, os.path.join(args.output_dir, 'partial_results', str(i)))
 
-    # Simulate the scenario with the initial parameters    
+    # Simulate the scenario with the initial parameters
     for tag in INCUMBENTS:
-        result_folders[0 if tag == 'initial' else 1] = run_simulation(INCUMBENTS[tag], os.path.join(args.output_dir, tag))    
+        result_folders[0 if tag == 'initial' else 1] = run_simulation(INCUMBENTS[tag], os.path.join(args.output_dir, tag))
 
     for item in ['initial', 'optimal']:
         print(item)
         print('\t - ' + str(INCUMBENTS[item]))
 
     plot_trajectories(result_folders, args.output_dir)
-    plot_position_heading_error(result_folders, args.output_dir)    
+    plot_position_heading_error(result_folders, args.output_dir)
 
     # Cleaning up
     for task in opt_config.tasks:
@@ -737,13 +737,13 @@ if __name__ == '__main__':
         r_file.write('![SMAC evolution]({}/plots/smac_evolution.png)\n\n'.format(args.output_dir))
 
         r_file.write('Description | Value\n')
-        r_file.write('--- | ---\n')        
-        r_file.write('**# SMAC instances:** | {}\n\n'.format(len(SMAC_OUTPUT)))        
+        r_file.write('--- | ---\n')
+        r_file.write('**# SMAC instances:** | {}\n\n'.format(len(SMAC_OUTPUT)))
         r_file.write('**# evaluations:** | {}\n'.format(str([item['stats']['ta_runs'] for item in SMAC_OUTPUT])))
         r_file.write('**Walltime [s]:** | {}\n\n'.format(str([item['stats']['wallclock_time_used'] for item in SMAC_OUTPUT])))
         r_file.write('**Initial cost:** | {}\n'.format(INCUMBENTS['initial']['cost']))
         r_file.write('**Optimal cost:** | {}\n\n'.format(INCUMBENTS['optimal']['cost']))
-        
+
         r_file.write('### Cost function\n\n')
 
         r_file.write('KPI | Weight\n')
@@ -761,7 +761,7 @@ if __name__ == '__main__':
                 r_file.write('Description | Value\n')
                 r_file.write('--- | ---\n')
                 params = c.get_params()
-                for tag in params:                    
+                for tag in params:
                     r_file.write('`{}` | `{}`\n'.format(tag, params[tag]))
                 r_file.write('\n')
 
