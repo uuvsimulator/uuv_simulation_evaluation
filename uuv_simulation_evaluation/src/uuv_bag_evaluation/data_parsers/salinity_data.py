@@ -29,7 +29,7 @@ class SalinityData(SimulationData):
         self._unit = None
         for x in bag.get_type_and_topic_info():
             for k in x:
-                if 'uuv_sensor_plugins_ros_msgs/Salinity' in x[k][0]:
+                if 'uuv_sensor_ros_plugins_msgs/Salinity' in x[k][0]:
                     self._topic_name = k
                     self._logger.info('Particle salinity topic found <%s>' % k)
                     break
