@@ -12,8 +12,8 @@ catkin_install_python(PROGRAMS scripts/evaluate_bag
                       DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 if(CATKIN_ENABLE_TESTING)
-  find_package(rostest)
-  find_package(rosunit)
+  find_package(rostest REQUIRED)
+  find_package(rosunit REQUIRED)
 
   foreach(UNIT_TESTS
     test/test_constraint.py
