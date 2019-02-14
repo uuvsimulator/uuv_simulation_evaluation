@@ -35,7 +35,7 @@ class OptConfiguration(object):
             self._opt_config = input_data
 
         assert 'cost_fcn' in self._opt_config, 'Cost function configuration available'
-        
+
         if 'parameters' in self._opt_config:
             self.parameters = self._opt_config['parameters']
         else:
@@ -66,8 +66,15 @@ class OptConfiguration(object):
             for t in task:
                 SIMULATION_LOGGER.info('\t - %s' % t)
 
-            self.tasks = task        
-        else:            
+            self.tasks = task
+        elif isinstance(task, str) and os.path.isfile(task):
+            SIMULATION_LOGGER.info('One task found:')
+            SIMULATION_LOGGER.info('\t - %s' % task)
+
+            self.tasks = [task]
+        else:
+            SIMULATION_LOGGER.info(str(type(self._opt_config['task'])))
+            SIMULATION_LOGGER.info(str(os.path.isdir(self._opt_config['task'])))
             if os.path.isfile(task):
                 SIMULATION_LOGGER.info('Retrieving filename for task function=' + task)
                 self.tasks = [task]
@@ -121,7 +128,7 @@ class OptConfiguration(object):
         if 'cost_fcn' in self._opt_config:
             SIMULATION_LOGGER.info('Initializing cost function')
             self.cost_fcn = CostFunction()
-            if isinstance(self._opt_config['cost_fcn'], dict):                
+            if isinstance(self._opt_config['cost_fcn'], dict):
                 cf = self._opt_config['cost_fcn']
                 SIMULATION_LOGGER.info('Cost function imported from list')
             elif isinstance(self._opt_config['cost_fcn'], str):
@@ -143,18 +150,18 @@ class OptConfiguration(object):
 
         if 'cost_fcn_norm' in self._opt_config:
             self.cost_fcn.set_norm(self._opt_config['cost_fcn_norm'])
-            
+
         SIMULATION_LOGGER.info('Cost function norm=' + str(self.cost_fcn.norm))
 
         if 'constraints' in self._opt_config:
             self.constraints = self._opt_config['constraints']
-            if isinstance(self.constraints, list):                
+            if isinstance(self.constraints, list):
                 self.cost_fcn.add_constraints(self._opt_config['constraints'])
                 SIMULATION_LOGGER.info('Constraints imported from list')
-            elif isinstance(self._opt_config['constraints'], str):                
+            elif isinstance(self._opt_config['constraints'], str):
                 assert os.path.isfile(self._opt_config['constraints']), 'Constraint file is invalid'
                 assert '.yml' in self._opt_config['constraints'] or '.yaml' in self._opt_config['constraints']
-    
+
                 with open(self._opt_config['constraints']) as c_file:
                     constraints = yaml.load(c_file)
 
@@ -163,7 +170,7 @@ class OptConfiguration(object):
             else:
                 SIMULATION_LOGGER.error('Invalid input constraints list')
                 raise Exception('Invalid input constraints list')
-                
+
 
     @staticmethod
     def get_instance(input_data=None):
@@ -177,7 +184,7 @@ class OptConfiguration(object):
     def get_constraint_tags(self):
         if self.cost_fcn is None:
             return None
-        return self.cost_fcn.get_constraint_tags()        
+        return self.cost_fcn.get_constraint_tags()
 
     def parse_input(self, args):
         assert 'input_map' in self._opt_config, 'Input parameter map is not available'
