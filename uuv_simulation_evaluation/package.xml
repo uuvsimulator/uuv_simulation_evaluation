@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<package>
+<package format="2">
   <name>uuv_simulation_evaluation</name>
   <version>0.5.0</version>
   <description>Package containing Python libraries for ROS bag evaluation and cost function computation</description>
@@ -12,13 +12,13 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <run_depend>rospy</run_depend>
-  <run_depend>roslib</run_depend>
-  <run_depend>python-numpy</run_depend>
-  <run_depend>python-matplotlib</run_depend>
-  <run_depend>tf</run_depend>
-  <run_depend>python-yaml</run_depend>
-  <run_depend>uuv_trajectory_control</run_depend>
+  <depend>rospy</depend>
+  <depend>roslib</depend>
+  <depend>python-numpy</depend>
+  <depend>python-matplotlib</depend>
+  <depend>tf</depend>
+  <depend>python-yaml</depend>
+  <depend>uuv_trajectory_control</depend>
 
   <test_depend>rosunit</test_depend>
   <test_depend>rostest</test_depend>
