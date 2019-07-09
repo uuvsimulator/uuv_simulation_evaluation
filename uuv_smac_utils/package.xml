@@ -12,6 +12,8 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
+  <build_depend>uuv_simulation_evaluation</build_depend>
+
   <run_depend>uuv_simulation_evaluation</run_depend>
   <run_depend>uuv_simulation_wrapper</run_depend>
   <run_depend>roslib</run_depend>
