@@ -28,7 +28,7 @@ class ConcentrationSensorData(SimulationData):
 
         for x in bag.get_type_and_topic_info():
             for k in x:
-                if 'uuv_sensor_plugins_ros_msgs/ChemicalParticleConcentration' in x[k][0]:
+                if 'uuv_sensor_ros_plugins_msgs/ChemicalParticleConcentration' in x[k][0]:
                     self._topic_name = k
                     self._logger.info('Particle concentration topic found <%s>' % k)
                     break
